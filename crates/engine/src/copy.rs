@@ -260,7 +260,7 @@ impl Tex {
             } else if self.copy_is_plain_medium(p) {
                 // The cases of glue, kern, math and penalty nodes below, with no jump: `flush_node_list` says why.  A glue node
                 // adds a reference, and any other node adds nothing to its own first word.
-                r = self.get_node(MEDIUM_NODE_SIZE);
+                r = self.get_node_leaf(MEDIUM_NODE_SIZE);
                 let is_glue = self.ty(p) == GLUE_NODE;
                 let g = pick(is_glue, self.glue_ptr(p), p);
                 self.set_glue_ref_count(g, self.glue_ref_count(g) + is_glue as i32);

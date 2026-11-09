@@ -2836,6 +2836,7 @@ impl Tex {
                     gamma: self.fixed_gamma,
                     image_gamma: self.fixed_image_gamma,
                     colorspace_ref: e.colorspace_ref,
+                    kernels: crate::platform::png_kernels(),
                 };
                 let mut slots = self.host.hv.ext.slots;
                 // `info` comes from `data`, and everything else the writer reads is in `params`.

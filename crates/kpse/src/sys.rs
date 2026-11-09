@@ -157,6 +157,25 @@ mod unix_map {
         unsafe { libc::geteuid() }
     }
 
+    /// `access (name, R_OK) == 0`.  The name goes to the system from the stack, as `std` hands it names, unless it is long.
+    pub fn access_read(name: &[u8]) -> bool {
+        if name.contains(&0) {
+            return false;
+        }
+        let mut short = [0u8; 384];
+        let long;
+        let p = if name.len() < short.len() {
+            short[..name.len()].copy_from_slice(name);
+            short.as_ptr().cast::<libc::c_char>()
+        } else {
+            let Ok(c) = std::ffi::CString::new(name) else { return false };
+            long = c;
+            long.as_ptr()
+        };
+        // SAFETY: `p` is a string that ends in a zero and lives across the call.
+        unsafe { libc::access(p, libc::R_OK) == 0 }
+    }
+
     /// A private read-only mapping of a whole file, which is never written while it is mapped: index files are published by rename.
     pub struct Map {
         p: *mut libc::c_void,
@@ -264,10 +283,9 @@ pub enum Readable {
 
 /// readable.c's `READABLE`: `access (fn, R_OK) == 0 && stat (fn) == 0 && !S_ISDIR`.
 ///
-/// `std` has no `access`.  A miss costs one `stat`, as in C, and that is by far the common case.  A
-/// regular file is opened and closed, which asks the kernel the same question as `access` (for the
-/// effective rather than the real user, which differ only in a setuid program).  A fifo or a device
-/// must not be opened, since that could block, so its mode bits decide.
+/// A miss costs one `stat`, as in C, and that is by far the common case.  A regular file is then
+/// asked `access`, one system call where an `open` and a `close` that asked the same were two.  A fifo
+/// or a device goes by its mode bits, as it did when the question was an `open`, which could block on it.
 #[cfg(unix)]
 pub fn readable(name: &[u8]) -> Readable {
     use std::os::unix::fs::MetadataExt;
@@ -281,7 +299,7 @@ pub fn readable(name: &[u8]) -> Readable {
     if md.is_dir() {
         return Readable::No;
     }
-    let ok = if md.is_file() { std::fs::File::open(&path).is_ok() } else { md.mode() & 0o444 != 0 };
+    let ok = if md.is_file() { unix_map::access_read(name) } else { md.mode() & 0o444 != 0 };
     if ok { Readable::Yes } else { Readable::No }
 }
 

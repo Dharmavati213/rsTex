@@ -1,0 +1,14 @@
+% mode: ini-etex
+% env: main_memory=100000
+% A loop with no end of its own, each round of which keeps a list on a node and then has an argument of one token, y, handed on as a bare #1: only a full
+% main memory stops it.  \pa moves the end so that the oracle stops in that #1, with §381's level of it in the context as "<argument> y".  capture.rs's
+% capture_param_one has no such level, so the stop has to be the literal loop's.  Which of its tests sends the argument there, near the end, this case does
+% not tell apart: macrocall.rs's a_bare_parameter_leaves_main_memory_as_the_literal_loop_does holds them to the literal loop.  The case has its own main
+% memory, so as not to depend on a format and to stop at once; if the stop ever moves off the #1, the \pa that puts it back is found again on the oracle.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \errorcontextlines=100
+\batchmode
+\def\pa{xx}
+\def\b#1{}\def\a#1{\b#1}
+\def\round{\special{xx}\a y\round}
+\setbox0\vbox{\round}
+\end

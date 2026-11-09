@@ -39,10 +39,13 @@
 //! // per font, in create_fontdictionary:
 //! get_char_range, mark_chars(fe's or fd's CodeSet), mark_reenc_glyphs(fd's GlyphSet)
 //! // in write_fontfile, once per descriptor:
-//! let o = write_t1(&T1Input { font, subsetted, all_glyphs, slant, extend, fontname, tx_codes, used_tags },
+//! let o = write_t1(&T1Input { font, subsetted, all_glyphs, slant, extend, fontname, tx_codes, used_tags, decrypt },
 //!                  &mut fd.dims, &mut fd.glyphs, &mut carry, &mut fontbuf)?;
 //! // print o.warnings with pdftex_warn, push o.subset_tag on used_tags, write /Length1..3 and fontbuf.
 //! ```
+//!
+//! `decrypt` is [`decrypt_run`], or the engine's `raw::eexec_decrypt`, which gives the same bytes and does eight at a
+//! time in SSE2: calling that takes `unsafe`, which this crate forbids.
 //!
 //! `Err` is `pdftex_fail` (or a failed `assert`): print [`FontError::warnings`], then
 //! [`FontError::message`] its way, and stop, since the C does not come back.  Warnings have to be printed
@@ -93,7 +96,7 @@ pub use md5::md5_hex;
 pub use outline::{OutlineSeg, T1Outlines};
 pub use pk::{CharDesc, pgc_font_scale, pgc_glyph_preamble, pgc_print_g, pk_read_char};
 pub use subfont::{Sfd, Subfont, read_sfd, subfont_parts};
-pub use t1::{CarryUse, T1Carry, T1Input, T1Output, write_t1};
+pub use t1::{CarryUse, DecryptRun, T1Carry, T1Input, T1Output, decrypt_run, write_t1};
 pub use tounicode::{GlyphUnicodeMap, GuEntry, SealedGlyphMap, write_tounicode};
 pub use ttf::{TtfCmapCache, TtfInput, TtfOutput, write_otf, write_ttf};
 

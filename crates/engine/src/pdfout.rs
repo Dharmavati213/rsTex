@@ -34,6 +34,75 @@ const MAX_WORKERS: usize = 3;
 const SYNCTEX_WEIGHT: u64 = 8;
 /// Entries in `Vars::adv_memo`, of two words each, a power of 2.
 const ADV_MEMO_SIZE: usize = 1 << 11;
+/// Entries in `HVars::tf_memo`, a power of 2 from 2 to 32: the slot is the top bits of a 32-bit hash, at least one,
+/// and `HVars` derives `Default`, which std has for arrays of up to 32.
+const TF_MEMO_SIZE: usize = 1 << 5;
+const _: () = assert!(TF_MEMO_SIZE.is_power_of_two() && 2 <= TF_MEMO_SIZE && TF_MEMO_SIZE <= 32);
+/// The most `pdf_set_font` prints after a font's name, ` <size> Tf`: a blank, what `pdf_print_real` prints, and 3.
+const TF_MAX: usize = 1 + REAL_MAX + 3;
+/// The most `pdf_print_real` prints: a sign, a point and ten digits.  Its `d` is at most 9, and a number below 2^31 has at
+/// most ten digits, or a 0 and `d`.  -2^31, which goes WEB's way, gives two signs and at most ten digits.
+const REAL_MAX: usize = 12;
+
+/// "00" to "99", for two digits at a time.
+static DIGIT_PAIRS: [u8; 200] = {
+    let mut t = [0u8; 200];
+    let mut i = 0;
+    while i < 100 {
+        t[2 * i] = b'0' + (i / 10) as u8;
+        t[2 * i + 1] = b'0' + (i % 10) as u8;
+        i += 1;
+    }
+    t
+};
+
+/// How many decimal digits `u` has, 1 for 0.  The numbers of a PDF are mostly short, so the tests go up from there.
+#[inline(always)]
+fn pdfout_digits(u: u64) -> usize {
+    if u < 10 {
+        1
+    } else if u < 100 {
+        2
+    } else if u < 1000 {
+        3
+    } else if u < 10000 {
+        4
+    } else {
+        let mut k = 5;
+        let mut t: u64 = 100000;
+        // 10^19 is the last power of 10 a u64 holds.
+        while k < 20 && u >= t {
+            k += 1;
+            t = t.wrapping_mul(10);
+        }
+        k
+    }
+}
+
+/// The decimal digits of `u`, which has at most `out.len()` of them, in `out`, with zeros in front to fill it.
+#[inline(always)]
+fn pdfout_put_digits(out: &mut [u8], mut u: u64) {
+    let mut j = out.len();
+    while j >= 2 {
+        let r = 2 * (u % 100) as usize;
+        u /= 100;
+        j -= 2;
+        out[j..j + 2].copy_from_slice(&DIGIT_PAIRS[r..r + 2]);
+    }
+    if j == 1 {
+        out[0] = b'0' + u as u8;
+    }
+}
+
+/// What `pdf_set_font` printed after a font's name for one `font_size`, and the `scaled_out` its division left.
+#[derive(Clone, Copy, Default)]
+struct TfMemo {
+    font_size: i32,
+    scaled_out: i32,
+    /// How many of `bytes` it printed, or 0 for an entry that holds nothing, as ` 0 Tf` is the shortest.
+    len: u8,
+    bytes: [u8; TF_MAX],
+}
 
 crate::pod_struct! {
     /// POD state private to this module.  Add fields here, not to state.rs.
@@ -46,8 +115,9 @@ crate::pod_struct! {
     }
 }
 
-/// Non-POD state private to this module, in `self.host`.  It is all about one stream in progress, and a
-/// snapshot is never taken inside a stream.
+/// Non-POD state private to this module, in `self.host`, which no image holds.  All of it but `tf_memo` is about one
+/// stream in progress, and a snapshot is never taken inside a stream.  `tf_memo` outlives every stream and every
+/// snapshot: a cache whose entries are a pure function of their key, so a run restored from an image needs none of it.
 #[derive(Default)]
 pub struct HVars {
     /// Between `pdf_begin_stream` and `write_stream_length`: file bytes go to `held`.
@@ -78,6 +148,9 @@ pub struct HVars {
     pending: Vec<PendingStream>,
     /// The entry in `outcache`'s next index of the stream that just went to a worker.
     worker_entry: Option<usize>,
+    /// `pdf_set_font`'s ` <size> Tf` by `font_size`, direct-mapped.  What an entry holds depends on its `font_size` alone,
+    /// so it needs to be in no image: a run restored from one finds the entries it has or prints them again.
+    tf_memo: [TfMemo; TF_MEMO_SIZE],
 }
 
 /// A stream a worker has.  The two offsets are in the file as it stands without what the workers have.
@@ -603,40 +676,19 @@ impl Tex {
         self.pdfout_print_int(n);
     }
 
-    /// §686 `pdf_print_int`, not generic over its argument, so there is one copy of it.
+    /// §686 `pdf_print_int`, not generic over its argument, so there is one copy of it.  WEB's two ways with a negative
+    /// number both give the digits of its absolute value, and `pdf_room` is asked for as many as there are, as there.  They
+    /// go straight to the buffer instead of through `dig`, which every reader of it fills first.
     fn pdfout_print_int(&mut self, n: i64) {
-        let mut n = n;
-        let mut k = 0;
         if n < 0 {
             self.pdf_out(b'-' as i32);
-            if n > -100000000 {
-                n = -n;
-            } else {
-                let mut m = -1 - n;
-                n = m / 10;
-                m = (m % 10) + 1;
-                k = 1;
-                if m < 10 {
-                    self.dig[0] = m as i32;
-                } else {
-                    self.dig[0] = 0;
-                    n += 1;
-                }
-            }
         }
-        loop {
-            self.dig[k] = (n % 10) as i32;
-            n /= 10;
-            k += 1;
-            if n == 0 {
-                break;
-            }
-        }
-        self.pdf_room(k);
-        while k > 0 {
-            k -= 1;
-            self.pdf_quick_out(b'0' as i32 + self.dig[k]);
-        }
+        let u = n.unsigned_abs();
+        let k = pdfout_digits(u);
+        self.pdf_room(k as i32);
+        let p = self.pdf_ptr as usize;
+        pdfout_put_digits(&mut self.pdf_buf_mut()[p..p + k], u);
+        self.pdf_ptr += k as i32;
     }
 
     /// §686
@@ -799,8 +851,37 @@ impl Tex {
         (s, s_out)
     }
 
-    /// §690
+    /// §690.  With `REAL_MAX` bytes of room below `pdf_buf_size`, none of its `pdf_out`s and `pdf_room`s flushes or grows
+    /// the buffer, and the bytes go straight in.  The fraction WEB prints, its zeros in front and then what is left of it
+    /// once the zeros at its end are taken off, is its `d` digits less those at the end.  -2^31, which WEB's negation
+    /// leaves negative, and a `d` outside `ten_pow` go WEB's way.
     pub fn pdf_print_real(&mut self, m: i32, d: i32) {
+        if m != i32::MIN && (0..=9).contains(&d) && self.pdf_ptr + REAL_MAX as i32 <= self.pdf_buf_size {
+            let t = self.ten_pow[d] as u32;
+            let a = m.unsigned_abs();
+            let (ip, mut fr, mut fd) = (a / t, a % t, d as usize);
+            if fr > 0 {
+                while fr % 10 == 0 {
+                    fr /= 10;
+                    fd -= 1;
+                }
+            }
+            let sign = (m < 0) as usize;
+            let k = sign + pdfout_digits(ip as u64);
+            let n = if fr > 0 { k + 1 + fd } else { k };
+            let p = self.pdf_ptr as usize;
+            let out = &mut self.pdf_buf_mut()[p..p + n];
+            if m < 0 {
+                out[0] = b'-';
+            }
+            pdfout_put_digits(&mut out[sign..k], ip as u64);
+            if fr > 0 {
+                out[k] = b'.';
+                pdfout_put_digits(&mut out[k + 1..], fr as u64);
+            }
+            self.pdf_ptr += n as i32;
+            return;
+        }
         let (mut m, mut d) = (m, d);
         if m < 0 {
             self.pdf_out(b'-' as i32);
@@ -1006,12 +1087,39 @@ impl Tex {
         self.pdf_print_s(b"/F");
         self.pdf_print_int(k);
         self.pdf_print_resname_prefix();
-        self.pdf_out(b' ' as i32);
-        let m = self.divide_scaled(self.font_size[f], self.one_hundred_bp, 6);
-        self.pdf_print_real(m, 4);
-        self.pdf_print_s(b" Tf");
+        self.pdfout_print_size_tf(self.font_size[f]);
         self.pdf_last_f = k;
         self.pdf_last_fs = self.font_size[f];
+    }
+
+    /// The end of §693's `pdf_set_font`, ` <size> Tf`.  It depends on `font_size` alone, as `one_hundred_bp` is a constant
+    /// and the divisor is no case for `divide_scaled`'s errors.  With `TF_MAX` bytes of room below `pdf_buf_size`, none of
+    /// its `pdf_out`s flushes or grows the buffer, so what it printed there can be kept and put in again, with the
+    /// `scaled_out` its division left.
+    #[inline]
+    fn pdfout_print_size_tf(&mut self, fs: i32) {
+        let slot = ((fs as u32).wrapping_mul(0x9E37_79B1) >> (32 - TF_MEMO_SIZE.trailing_zeros())) as usize;
+        let room = self.pdf_ptr + TF_MAX as i32 <= self.pdf_buf_size;
+        let e = self.host.hv.pdfout.tf_memo[slot];
+        if room && e.len != 0 && e.font_size == fs {
+            let (p, n) = (self.pdf_ptr as usize, e.len as usize);
+            self.pdf_buf_mut()[p..p + n].copy_from_slice(&e.bytes[..n]);
+            self.pdf_ptr += n as i32;
+            self.scaled_out = e.scaled_out;
+            return;
+        }
+        let p0 = self.pdf_ptr;
+        self.pdf_out(b' ' as i32);
+        let m = self.divide_scaled(fs, self.one_hundred_bp, 6);
+        let scaled_out = self.scaled_out;
+        self.pdf_print_real(m, 4);
+        self.pdf_print_s(b" Tf");
+        if room {
+            let (p0, p1) = (p0 as usize, self.pdf_ptr as usize);
+            let mut bytes = [0; TF_MAX];
+            bytes[..p1 - p0].copy_from_slice(&self.pdf_buf_mut()[p0..p1]);
+            self.host.hv.pdfout.tf_memo[slot] = TfMemo { font_size: fs, scaled_out, len: (p1 - p0) as u8, bytes };
+        }
     }
 
     /// §693
@@ -1303,10 +1411,28 @@ impl Tex {
             DIRECT_ALWAYS => self.pdf_end_string_nl(),
             _ => self.confusion(b"literal1"),
         }
-        while j < self.str_start[s + 1] {
-            let c = self.str_pool.at(j);
-            self.pdf_out(c);
-            j += 1;
+        let e = self.str_start[s + 1];
+        if self.pdf_os_mode {
+            while j < e {
+                let c = self.str_pool.at(j);
+                self.pdf_out(c);
+                j += 1;
+            }
+        } else {
+            // `pdf_out` of each byte, a run at a time: out of object-stream mode `pdf_room(1)` flushes a full buffer and does
+            // nothing else, so the bytes go in up to its end, and the flushes come where they came.
+            while j < e {
+                self.pdf_room(1);
+                let k = self.pdf_ptr;
+                let n = (e - j).min(self.pdf_buf_size - k);
+                if self.pdf_buf_is_os {
+                    self.pdf_os_buf.range_mut(k, k + n).copy_from_slice(self.str_pool.range(j, j + n));
+                } else {
+                    self.pdf_op_buf.range_mut(k, k + n).copy_from_slice(self.str_pool.range(j, j + n));
+                }
+                self.pdf_ptr = k + n;
+                j += n;
+            }
         }
         self.pdf_print_nl();
     }
@@ -2014,6 +2140,273 @@ mod tests {
         }
         assert!(fast > 2_000_000, "{fast}");
         Tex::dealloc(t);
+    }
+
+    /// §686's `pdf_print_int` as WEB has it, through `dig` and a `pdf_quick_out` for each digit.
+    fn pdf_print_int_long_hand(t: &mut Tex, n: i64) {
+        let mut n = n;
+        let mut k = 0;
+        if n < 0 {
+            t.pdf_out(b'-' as i32);
+            if n > -100000000 {
+                n = -n;
+            } else {
+                let mut m = -1 - n;
+                n = m / 10;
+                m = (m % 10) + 1;
+                k = 1;
+                if m < 10 {
+                    t.dig[0] = m as i32;
+                } else {
+                    t.dig[0] = 0;
+                    n += 1;
+                }
+            }
+        }
+        loop {
+            t.dig[k] = (n % 10) as i32;
+            n /= 10;
+            k += 1;
+            if n == 0 {
+                break;
+            }
+        }
+        t.pdf_room(k as i32);
+        while k > 0 {
+            k -= 1;
+            t.pdf_quick_out(b'0' as i32 + t.dig[k]);
+        }
+    }
+
+    /// §690's `pdf_print_real` as WEB has it.
+    fn pdf_print_real_long_hand(t: &mut Tex, m: i32, d: i32) {
+        let (mut m, mut d) = (m, d);
+        if m < 0 {
+            t.pdf_out(b'-' as i32);
+            m = m.wrapping_neg();
+        }
+        pdf_print_int_long_hand(t, (m / t.ten_pow[d]) as i64);
+        m %= t.ten_pow[d];
+        if m > 0 {
+            t.pdf_out(b'.' as i32);
+            d -= 1;
+            while m < t.ten_pow[d] {
+                t.pdf_out(b'0' as i32);
+                d -= 1;
+            }
+            while m % 10 == 0 {
+                m /= 10;
+            }
+            pdf_print_int_long_hand(t, m as i64);
+        }
+    }
+
+    /// §686's `pdf_print`, a `pdf_out` for each byte.
+    fn pdf_print_s_long_hand(t: &mut Tex, s: &[u8]) {
+        for &c in s {
+            t.pdf_out(c as i32);
+        }
+    }
+
+    /// The end of §693's `pdf_set_font` as WEB has it.
+    fn size_tf_long_hand(t: &mut Tex, fs: i32) {
+        t.pdf_out(b' ' as i32);
+        let m = t.divide_scaled(fs, t.one_hundred_bp, 6);
+        pdf_print_real_long_hand(t, m, 4);
+        pdf_print_s_long_hand(t, b" Tf");
+    }
+
+    /// Integers of every length and sign, and the ends of `i64` and of WEB's way with -10^8 and below.
+    fn random_int(next: &mut impl FnMut() -> u64) -> i64 {
+        let a = next();
+        match next() % 4 {
+            0 => random_scaled(next) as i64,
+            1 => a as i64,
+            2 => (a % 10u64.pow((a >> 59) as u32 % 19 + 1)) as i64 * if a & 1 == 0 { 1 } else { -1 },
+            _ => [0, i64::MIN, i64::MIN + 1, i64::MAX, -99999999, -100000000, -100000001, -1000000000][(a % 8) as usize],
+        }
+    }
+
+    /// One machine prints the quick ways and the other the long ones, the same numbers, strings and font sizes, in a
+    /// content stream that is flushed to the file as it fills or in an object stream that grows from its smallest.  Every
+    /// flush and growth has to fall where it did, and nothing may be written past `pdf_ptr` that the long ones leave.
+    fn quick_and_long_hand_side_by_side(os: bool, steps: usize) {
+        let (a, b) = (pdf_machine(), pdf_machine());
+        for t in [&mut *a, &mut *b] {
+            t.pdf_ptr = 0;
+            if os {
+                t.pdf_os_mode = true;
+                t.pdf_buf_is_os = true;
+                t.pdf_os_buf_size = INF_PDF_OS_BUF_SIZE;
+                t.pdf_buf_size = t.pdf_os_buf_size;
+            }
+        }
+        let mut next = xorshift();
+        // More sizes than the memo has entries, so that they meet and put each other out.
+        let mut sizes: Vec<i32> = (0..3 * TF_MEMO_SIZE).map(|_| random_scaled(&mut next)).collect();
+        sizes.extend([0, 1, 655360, 655361, 589824, 2048 * 65536 - 1, i32::MAX, i32::MIN]);
+        let strings: [&[u8]; 6] = [b"/F", b" Tf", b")]TJ", b"1 0 0 1 ", b"", &[b'x'; 300]];
+        let mut kinds = [0u64; 4];
+        for step in 0..steps {
+            let kind = (next() % 4) as usize;
+            kinds[kind] += 1;
+            match kind {
+                0 => {
+                    let n = random_int(&mut next);
+                    a.pdf_print_int(n);
+                    pdf_print_int_long_hand(b, n);
+                }
+                1 => {
+                    let (m, d) = (random_scaled(&mut next), (next() % 10) as i32);
+                    a.pdf_print_real(m, d);
+                    pdf_print_real_long_hand(b, m, d);
+                }
+                2 => {
+                    let s = strings[(next() % strings.len() as u64) as usize];
+                    a.pdf_print_s(s);
+                    pdf_print_s_long_hand(b, s);
+                }
+                _ => {
+                    let fs = sizes[(next() % sizes.len() as u64) as usize];
+                    a.pdfout_print_size_tf(fs);
+                    size_tf_long_hand(b, fs);
+                }
+            }
+            assert_eq!(
+                (a.pdf_ptr, a.pdf_buf_size, a.pdf_os_buf_size, a.pdf_buf_is_os, a.pdf_gone, a.pdf_last_byte, a.scaled_out),
+                (b.pdf_ptr, b.pdf_buf_size, b.pdf_os_buf_size, b.pdf_buf_is_os, b.pdf_gone, b.pdf_last_byte, b.scaled_out),
+                "step {step}"
+            );
+            // Nor past `pdf_ptr`, after each step, as a later one would cover it.
+            let p = a.pdf_ptr as usize;
+            let (ba, bb) = (a.pdf_buf_mut(), b.pdf_buf_mut());
+            let end = ba.len().min(p + 2 * TF_MAX);
+            assert!(ba[p..end] == bb[p..end], "step {step}");
+            if os && a.pdf_ptr > SUP_PDF_OS_BUF_SIZE - 100_000 {
+                // Back to the start before the limit, whose overflow would end the test.
+                a.pdf_ptr = 0;
+                b.pdf_ptr = 0;
+            }
+        }
+        assert!(kinds.iter().all(|&k| k > steps as u64 / 5), "{kinds:?}");
+        if os {
+            assert!(a.pdf_os_buf.as_slice() == b.pdf_os_buf.as_slice());
+        } else {
+            assert!(a.pdf_op_buf.as_slice() == b.pdf_op_buf.as_slice());
+            let (fa, fb) = (file(a), file(b));
+            assert!(fa.len() > 1 << 20, "{}", fa.len());
+            assert!(fa == fb);
+        }
+        Tex::dealloc(a);
+        Tex::dealloc(b);
+    }
+
+    #[test]
+    fn numbers_strings_and_sizes_print_as_the_long_hand() {
+        quick_and_long_hand_side_by_side(false, 400_000);
+        quick_and_long_hand_side_by_side(true, 400_000);
+    }
+
+    /// The longest numbers, strings and sizes and shorter ones, each at every distance from 0 to 24 bytes before the
+    /// end of the buffer: the content stream's, which is flushed there, and an object stream's of three sizes, which
+    /// grows to what is asked, by a fifth or to its limit.  The random test above reaches a room test's very edge only
+    /// by chance, and `REAL_MAX` has no byte to spare: with 11 for it that test passes, this one does not.
+    #[test]
+    fn numbers_strings_and_sizes_at_every_distance_from_the_end() {
+        // The longest real for each `d` is in these, and -2^31 goes WEB's way.
+        let ms = [
+            0, 1, -1, 9, -9, 10, 99999, -99999, 100000, 123456789, -123456789, 999999999, -999999999, 1000000000,
+            -1000000000, 1000000001, -1000000001, i32::MAX, -i32::MAX, i32::MIN,
+        ];
+        let reals: Vec<(i32, i32)> = ms.iter().flat_map(|&m| (0..10).map(move |d| (m, d))).collect();
+        // Every length from 1 to 20 bytes, and WEB's way with -10^8 and below.
+        let mut ints = vec![i64::MIN, i64::MAX, -99999999, -100000000, -100000001];
+        for l in 0..=18 {
+            let p = 10i64.pow(l);
+            ints.extend([p, -p, p - 1, 1 - p]);
+        }
+        let strings: Vec<Vec<u8>> = (0..=24).map(|n| vec![b'q'; n]).collect();
+        // 0, 1sp, 0.1pt, 1pt, 10pt, 9pt and the largest size a font may have; the rest, which no font has, give the
+        // longest Tf, 15 bytes.
+        let sizes = [0, 1, 6554, 65536, 655360, 589824, 2048 * 65536 - 1, i32::MAX, -i32::MAX, i32::MIN, -1];
+        let (a, b) = (pdf_machine(), pdf_machine());
+        for os_size in [0, 30, 1000, SUP_PDF_OS_BUF_SIZE - 100] {
+            let os = os_size != 0;
+            let size = if os { os_size } else { PDF_OP_BUF_SIZE };
+            // Where a step may write: around `size`, and from 0 on after a flush.
+            let len = if os { a.pdf_os_buf.as_slice().len() } else { a.pdf_op_buf.as_slice().len() };
+            let (lo, hi) = ((size as usize).saturating_sub(64), (size as usize + 64).min(len));
+            for kind in 0..5 {
+                let items = [reals.len(), ints.len(), strings.len(), sizes.len(), sizes.len()][kind];
+                for item in 0..items {
+                    for back in 0..=24 {
+                        for t in [&mut *a, &mut *b] {
+                            t.pdf_os_mode = os;
+                            t.pdf_buf_is_os = os;
+                            t.pdf_os_buf_size = if os { os_size } else { INF_PDF_OS_BUF_SIZE };
+                            t.pdf_buf_size = size;
+                            t.pdf_gone = 0;
+                            t.host.files[PDF_FILE as usize] = Slot::Pdf(PdfOut::new(b"unused.pdf"));
+                            // A byte that nothing here prints, so that one written past `pdf_ptr` shows.
+                            let buf = t.pdf_buf_mut();
+                            buf[..64].fill(0xff);
+                            buf[lo..hi].fill(0xff);
+                            t.pdf_ptr = size - back;
+                        }
+                        match kind {
+                            0 => {
+                                let (m, d) = reals[item];
+                                a.pdf_print_real(m, d);
+                                pdf_print_real_long_hand(b, m, d);
+                            }
+                            1 => {
+                                a.pdf_print_int(ints[item]);
+                                pdf_print_int_long_hand(b, ints[item]);
+                            }
+                            2 => {
+                                a.pdf_print_s(&strings[item]);
+                                pdf_print_s_long_hand(b, &strings[item]);
+                            }
+                            _ => {
+                                let fs = sizes[item];
+                                a.host.hv.pdfout.tf_memo = Default::default();
+                                if kind == 4 {
+                                    // Kept first, at the start, so that the steps at the end find it.
+                                    for t in [&mut *a, &mut *b] {
+                                        t.pdf_ptr = 0;
+                                    }
+                                    a.pdfout_print_size_tf(fs);
+                                    size_tf_long_hand(b, fs);
+                                    for t in [&mut *a, &mut *b] {
+                                        t.pdf_ptr = size - back;
+                                    }
+                                }
+                                for _ in 0..2 {
+                                    a.pdfout_print_size_tf(fs);
+                                    size_tf_long_hand(b, fs);
+                                }
+                            }
+                        }
+                        assert_eq!(
+                            (a.pdf_ptr, a.pdf_buf_size, a.pdf_os_buf_size, a.pdf_buf_is_os, a.pdf_gone, a.pdf_last_byte, a.scaled_out),
+                            (b.pdf_ptr, b.pdf_buf_size, b.pdf_os_buf_size, b.pdf_buf_is_os, b.pdf_gone, b.pdf_last_byte, b.scaled_out),
+                            "os {os_size} kind {kind} item {item} back {back}"
+                        );
+                        let (ba, bb) = (a.pdf_buf_mut(), b.pdf_buf_mut());
+                        assert!(
+                            ba[..64] == bb[..64] && ba[lo..hi] == bb[lo..hi],
+                            "os {os_size} kind {kind} item {item} back {back}"
+                        );
+                        if !os {
+                            let (fa, fb) = (a.pdf_out_file().unwrap().contents(), b.pdf_out_file().unwrap().contents());
+                            assert!(fa == fb, "kind {kind} item {item} back {back}");
+                        }
+                    }
+                }
+            }
+        }
+        Tex::dealloc(a);
+        Tex::dealloc(b);
     }
 
     #[test]

@@ -208,6 +208,11 @@ pub fn map_file_view(_file: &std::fs::File, _len: usize) -> *const u8 {
 /// Never called: `map_file_view` gives nothing to unmap.
 pub unsafe fn unmap_file_view(_p: *const u8, _len: usize) {}
 
+/// See `platform::read_to_end_sized`: `std`'s own, which asks for the size again.
+pub fn read_to_end_sized(file: &mut std::fs::File, _size: u64, out: &mut Vec<u8>) -> std::io::Result<()> {
+    std::io::Read::read_to_end(file, out).map(|_| ())
+}
+
 pub fn read_exact_at(file: &std::fs::File, offset: u64, buf: &mut [u8]) -> bool {
     use std::os::windows::fs::FileExt;
     let mut at = 0;

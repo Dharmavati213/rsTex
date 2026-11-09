@@ -1124,15 +1124,22 @@ struct RowInfo {
     rowbytes: usize,
 }
 
-struct Rows<'a> {
+/// The image data: the IDAT chunks and the zstream that inflates them.
+struct Idat<'a> {
     inp: Input<'a>,
     idat_size: u32,
     z: Inflate,
     zin: Vec<u8>,
     zin_pos: usize,
     zstream_ended: bool,
+}
+
+struct Rows<'a> {
+    idat: Idat<'a>,
     row_buf: Vec<u8>,
     prev_row: Vec<u8>,
+    /// From `PngParams::kernels`.
+    kernels: Kernels,
     t: Transforms,
     palette: Vec<[u8; 3]>,
     trans_alpha: Vec<u8>,
@@ -1145,12 +1152,13 @@ struct Rows<'a> {
     file_pixel_depth: u8,
 }
 
-impl Rows<'_> {
-    /// `png_read_IDAT_data`.  `output` of `None` is the check after the last row.
-    fn read_idat_data(&mut self, n: usize, check_only: bool) -> Result<(), Fail> {
+impl Idat<'_> {
+    /// `png_read_IDAT_data`, filling `output`.  `output` of `None` is the check after the last row.
+    fn read_idat_data(&mut self, mut output: Option<&mut [u8]>) -> Result<(), Fail> {
+        let check_only = output.is_none();
         let mut filled = 0usize;
         let mut tmp = [0u8; 1024];
-        let mut avail_out = if check_only { 0 } else { n };
+        let mut avail_out = output.as_ref().map_or(0, |o| o.len());
         loop {
             if self.zin_pos == self.zin.len() {
                 while self.idat_size == 0 {
@@ -1166,12 +1174,11 @@ impl Rows<'_> {
                 self.zin_pos = 0;
             }
             let (i0, o0) = (self.z.total_in(), self.z.total_out());
-            let ret = if check_only {
-                self.z.decompress(&self.zin[self.zin_pos..], &mut tmp, InflateFlush::NoFlush)
-            } else {
-                let out = &mut self.row_buf[filled..n];
-                self.z.decompress(&self.zin[self.zin_pos..], out, InflateFlush::NoFlush)
+            let out = match output.as_deref_mut() {
+                Some(o) => &mut o[filled..],
+                None => &mut tmp[..],
             };
+            let ret = self.z.decompress(&self.zin[self.zin_pos..], out, InflateFlush::NoFlush);
             self.zin_pos += (self.z.total_in() - i0) as usize;
             let produced = (self.z.total_out() - o0) as usize;
             if check_only {
@@ -1207,14 +1214,16 @@ impl Rows<'_> {
     /// `png_read_finish_IDAT`.
     fn finish_idat(&mut self) -> Result<(), Fail> {
         if !self.zstream_ended {
-            self.read_idat_data(0, true)?;
+            self.read_idat_data(None)?;
             self.zstream_ended = true;
         }
         // Spurious bytes in the buffer are part of idat_size's accounting already: only what was not read is skipped.
         self.inp.crc_finish(self.idat_size as usize)?;
         Ok(())
     }
+}
 
+impl Rows<'_> {
     /// The part of `png_read_row` that reads a filtered row of `iwidth` pixels and transforms it in place, leaving the
     /// pixels at `row_buf[1..]`.
     fn read_row(&mut self, iwidth: u32) -> Result<RowInfo, Fail> {
@@ -1226,19 +1235,80 @@ impl Rows<'_> {
             pixel_depth: self.file_pixel_depth,
             rowbytes: rowbytes(self.file_pixel_depth as u32, iwidth),
         };
+        let n = ri.rowbytes + 1;
         self.row_buf[0] = 255;
-        self.read_idat_data(ri.rowbytes + 1, false)?;
+        self.idat.read_idat_data(Some(&mut self.row_buf[..n]))?;
         let filter = self.row_buf[0];
         if filter > 0 {
             if filter >= 5 {
                 return Err(png_error());
             }
-            read_filter_row(&ri, &mut self.row_buf, &self.prev_row, filter);
+            (self.kernels.unfilter)(&mut self.row_buf[..n], &self.prev_row[..n], ((ri.pixel_depth as usize) + 7) >> 3);
         }
-        let n = ri.rowbytes + 1;
         self.prev_row[..n].copy_from_slice(&self.row_buf[..n]);
         self.do_read_transformations(&mut ri);
         Ok(ri)
+    }
+
+    /// Where `read_plain_rows` reads rows `width` pixels wide, if it may: if `do_read_transformations` leaves every
+    /// row, of whole bytes, as the filters gave it, and the memory can be had.  Slots of `read_row`'s size, for the row
+    /// above and a group of up to 32 rows, in up to 512 KiB: runs of the bands of `unfilter_rows_avx2`, of 4 or 8 rows,
+    /// and near the cache.  And zeros, which are the row above the first.
+    fn group_buffer(&self, width: u32, height: u32) -> Option<Vec<u8>> {
+        let alpha = self.file_color_type == COLOR_RGB_ALPHA || self.file_color_type == COLOR_GRAY_ALPHA;
+        if self.file_pixel_depth < 8
+            || self.t.expand
+            || (self.t.strip_alpha && alpha)
+            || (self.t.gamma && self.file_color_type != COLOR_PALETTE)
+            || self.t.chop_16
+        {
+            return None;
+        }
+        let stride = rowbytes(self.file_pixel_depth as u32, width) + 1;
+        let group = ((512 << 10) / stride).clamp(1, 32).min(height as usize);
+        let mut buf = Vec::new();
+        buf.try_reserve_exact(stride * (group + 1)).ok()?;
+        buf.resize(stride * (group + 1), 0);
+        Some(buf)
+    }
+
+    /// `read_rows` for an image that `group_buffer` gives `buf` for: `read_row`'s bytes, by other means.  Each row is
+    /// read into a slot of `buf` as `read_row` reads it into `row_buf`, a filter byte and the row, by the same request
+    /// to the zstream, so a short or broken stream or a bad filter byte fails at the same row, and `sink` reserves for
+    /// it there.  Then a group of rows is unfiltered at once, each under the one before it, which lets
+    /// `unfilter_rows_avx2` take Paeth rows several at a step, and they go to `sink` in order.
+    fn read_plain_rows(
+        &mut self,
+        width: u32,
+        height: u32,
+        mut buf: Vec<u8>,
+        sink: &mut impl RowSink,
+    ) -> Result<(), Fail> {
+        let stride = rowbytes(self.file_pixel_depth as u32, width) + 1;
+        let group = buf.len() / stride - 1;
+        let bpp = self.file_pixel_depth as usize >> 3;
+        let h = height as usize;
+        let mut y = 0;
+        while y < h {
+            let n = (h - y).min(group);
+            for k in 1..=n {
+                let slot = &mut buf[k * stride..(k + 1) * stride];
+                slot[0] = 255;
+                self.idat.read_idat_data(Some(slot))?;
+                if slot[0] >= 5 {
+                    return Err(png_error());
+                }
+                sink.reserve(y + k - 1)?;
+            }
+            let (above, rows) = buf.split_at_mut(stride);
+            (self.kernels.unfilter)(&mut rows[..n * stride], above, bpp);
+            for row in rows[..n * stride].chunks_exact(stride) {
+                sink.take(&row[1..]);
+            }
+            buf.copy_within(n * stride..(n + 1) * stride, 0);
+            y += n;
+        }
+        Ok(())
     }
 
     /// `png_do_read_transformations`, for the transforms `write_png` asks for.
@@ -1265,27 +1335,113 @@ impl Rows<'_> {
     }
 }
 
-/// `png_read_filter_row`.  `row[0]` and `prev[0]` are the filter bytes.  A pixel's bytes depend only on those of the pixels
-/// before it, so what C does byte by byte is done here in the lanes of a pixel, which the compiler turns into vector
-/// operations: a third of the time on a Paeth row of four bytes to the pixel.  The bytes are C's: `tests::filters_are_the_c_ones`.
-fn read_filter_row(ri: &RowInfo, row_buf: &mut [u8], prev_row: &[u8], filter: u8) {
-    let bpp = ((ri.pixel_depth as usize) + 7) >> 3;
-    let n = ri.rowbytes;
-    let row = &mut row_buf[1..=n];
-    let prev = &prev_row[1..=n];
-    if filter == 2 {
-        for (r, p) in row.iter_mut().zip(prev) {
-            *r = r.wrapping_add(*p);
+/// The code the rows of a picture go through, as the CPU allows: [`Kernels::PLAIN`], or the same compiled for a CPU
+/// feature, `unfilter_rows_avx2` and `split_row_avx2`.  Code compiled for a feature may only be called in `unsafe`,
+/// once the feature is known to be there, and this crate has no `unsafe`: so the engine makes the choice, in
+/// `platform::png_kernels`, and hands it over in `PngParams::kernels`.  Each gives the same bytes:
+/// `tests::filters_are_the_c_ones`, `tests::split_alpha_takes_the_first_byte_of_alpha` and `tests/png_kernels.rs`.
+#[derive(Clone, Copy, Debug)]
+pub struct Kernels {
+    /// Undoes the row filters of a group of rows, as [`unfilter_rows`] does.
+    pub unfilter: fn(rows: &mut [u8], prev: &[u8], bpp: usize),
+    /// Splits a row of pixels with alpha into their colour and their alpha, as [`split_row`] does.
+    pub split: fn(row: &[u8], color: &mut [u8], alpha: &mut [u8], rgb: bool, wide: bool),
+}
+
+impl Kernels {
+    /// What every CPU runs.
+    pub const PLAIN: Kernels = Kernels { unfilter: unfilter_rows, split: split_row };
+}
+
+/// `png_read_filter_row` for each row of `rows`, which holds whole rows, each in the slot `png_read_row` reads it into:
+/// its filter byte, below 5, then its bytes, as many as `prev` has after its first.  `prev` is the row above the first,
+/// unfiltered, in a slot of the same kind, and `bpp` the bytes to a pixel, 1 for pixels of fewer bits.  Each row is
+/// unfiltered in place, under the one before it.  A pixel's bytes depend only on those of the pixels before it, so what
+/// C does byte by byte is done here in the lanes of a pixel, which the compiler turns into vector operations: a third
+/// of the time on a Paeth row of four bytes to the pixel.
+pub fn unfilter_rows(rows: &mut [u8], prev: &[u8], bpp: usize) {
+    let mut above = prev;
+    for row in rows.chunks_exact_mut(prev.len()) {
+        match bpp {
+            1 => filter_row::<1>(row, above),
+            2 => filter_row::<2>(row, above),
+            3 => filter_row::<3>(row, above),
+            4 => filter_row::<4>(row, above),
+            6 => filter_row::<6>(row, above),
+            _ => filter_row::<8>(row, above),
         }
-        return;
+        above = row;
     }
-    match bpp {
-        1 => filter_lanes::<1>(row, prev, filter),
-        2 => filter_lanes::<2>(row, prev, filter),
-        3 => filter_lanes::<3>(row, prev, filter),
-        4 => filter_lanes::<4>(row, prev, filter),
-        6 => filter_lanes::<6>(row, prev, filter),
-        _ => filter_lanes::<8>(row, prev, filter),
+}
+
+/// [`unfilter_rows`] compiled for AVX2, which only a CPU that has it may call.  Three operands, so none of the register
+/// copies that SSE2's two take, and `vpblendvb` for Paeth's choices.  Paeth is serial along a row, so a run of Paeth
+/// rows of pixels of 1, 2 or 4 bytes goes through `band`, several rows at a step.
+///
+/// # Safety
+/// The CPU has AVX2.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+pub fn unfilter_rows_avx2(rows: &mut [u8], prev: &[u8], bpp: usize) {
+    let stride = prev.len();
+    let height = band::height(bpp);
+    let mut above = prev;
+    let mut rest = rows;
+    while rest.len() >= stride {
+        if height > 0 && rest.len() >= height * stride && (0..height).all(|k| rest[k * stride] == 4) {
+            let (rows, tail) = std::mem::take(&mut rest).split_at_mut(height * stride);
+            match bpp {
+                1 => band::paeth_1(rows, above),
+                2 => band::paeth_2(rows, above),
+                _ => band::paeth_4(rows, above),
+            }
+            let rows: &[u8] = rows;
+            above = &rows[(height - 1) * stride..];
+            rest = tail;
+        } else {
+            let (row, tail) = std::mem::take(&mut rest).split_at_mut(stride);
+            match bpp {
+                1 => filter_row_avx2::<1>(row, above),
+                2 => filter_row_avx2::<2>(row, above),
+                3 => filter_row_avx2::<3>(row, above),
+                4 => filter_row_avx2::<4>(row, above),
+                6 => filter_row_avx2::<6>(row, above),
+                _ => filter_row_avx2::<8>(row, above),
+            }
+            above = row;
+            rest = tail;
+        }
+    }
+}
+
+/// One row of [`unfilter_rows`].  A function of its own for each width of pixel: inlined into the loop over the rows, a
+/// pixel's lanes are no longer put in vector registers.
+#[inline(never)]
+fn filter_row<const BPP: usize>(row: &mut [u8], prev: &[u8]) {
+    filter_row_in::<BPP>(row, prev)
+}
+
+/// `filter_row` compiled for AVX2.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+#[inline(never)]
+fn filter_row_avx2<const BPP: usize>(row: &mut [u8], prev: &[u8]) {
+    filter_row_in::<BPP>(row, prev)
+}
+
+/// `row[0]` and `prev[0]` are the filter bytes.
+#[inline(always)]
+fn filter_row_in<const BPP: usize>(row: &mut [u8], prev: &[u8]) {
+    let filter = row[0];
+    let (row, prev) = (&mut row[1..], &prev[1..]);
+    match filter {
+        0 => {}
+        2 => {
+            for (r, p) in row.iter_mut().zip(prev) {
+                *r = r.wrapping_add(*p);
+            }
+        }
+        _ => filter_lanes::<BPP>(row, prev, filter),
     }
 }
 
@@ -1314,35 +1470,292 @@ fn filter_lanes<const BPP: usize>(row: &mut [u8], prev: &[u8], filter: u8) {
             }
         }
         _ => {
+            // Paeth as stb_image has it, which picks what libpng's three distances pick for every a, b and c
+            // (`tests::paeth_is_libpngs_for_every_input`): with lo and hi the smaller and larger of a and b, the
+            // predictor is hi where 3c <= lo + hi + lo, lo where lo + hi + hi <= 3c, and c otherwise.  Half the
+            // operations of the distances, and nothing in it but a min, a max, two compares and two selects.
             for (r, p) in row.chunks_exact_mut(BPP).zip(prev.chunks_exact(BPP)) {
-                let mut b = [0i16; BPP];
-                let mut x = [0i16; BPP];
                 for i in 0..BPP {
-                    b[i] = p[i] as i16;
-                    x[i] = r[i] as i16;
-                }
-                let mut pred = [0i16; BPP];
-                for i in 0..BPP {
-                    let d1 = b[i] - c[i];
-                    let d2 = a[i] - c[i];
-                    let d3 = d1 + d2;
-                    let pa = d1.max(-d1);
-                    let pb = d2.max(-d2);
-                    let pc = d3.max(-d3);
-                    // if pb < pa { pa = pb; a = b } if pc < pa { a = c }, in masks.
-                    let m = -((pb < pa) as i16);
-                    let best = (pa & !m) | (pb & m);
-                    let t = (a[i] & !m) | (b[i] & m);
-                    let n = -((pc < best) as i16);
-                    pred[i] = (t & !n) | (c[i] & n);
-                }
-                for i in 0..BPP {
-                    let v = (x[i] + pred[i]) & 0xff;
+                    let b = p[i] as i16;
+                    let v = (r[i] as i16 + paeth(a[i], b, c[i])) & 0xff;
                     r[i] = v as u8;
                     a[i] = v;
-                    c[i] = b[i];
+                    c[i] = b;
                 }
             }
+        }
+    }
+}
+
+/// The Paeth predictor in stb_image's form: see `filter_lanes`.
+#[inline(always)]
+fn paeth(a: i16, b: i16, c: i16) -> i16 {
+    let thresh = c * 3 - (a + b);
+    let lo = a.min(b);
+    let hi = a.max(b);
+    let t0 = if hi <= thresh { lo } else { c };
+    if thresh <= lo { hi } else { t0 }
+}
+
+/// Runs of Paeth rows for `unfilter_rows_avx2`, several rows at a step.  Row `k` of a band runs `k` pixels behind the
+/// first, in 16-bit lanes of a register, one for each byte of a pixel, after those of row `k - 1`.  So at each step a
+/// lane's `a` is its own last byte, its `b` the last byte of row `k - 1`'s lane for the same byte, which has just done
+/// the pixel above, or for the first row the pixel of the row above the band, and its `c` its `b` of the step before:
+/// all of it in registers, and each step does one pixel of each row for the work of one.  A lane whose row has not
+/// started yet takes zeros and gives zeros, which are what `a` and `c` are at the start of a row.  A lane whose row has
+/// ended gives what no row stores.
+///
+/// The arithmetic is `paeth`'s in each lane.  Safe code: the intrinsics that read no memory are safe in a function
+/// compiled for their feature, and the rows are slices.
+#[cfg(target_arch = "x86_64")]
+mod band {
+    use core::arch::x86_64::*;
+
+    /// How many rows a band has, for pixels of `bpp` bytes, or 0 where there is no band.
+    pub(super) fn height(bpp: usize) -> usize {
+        match bpp {
+            1 => 8,
+            2 | 4 => 4,
+            _ => 0,
+        }
+    }
+
+    /// The rows of a band, each as its pixels, and the row above it.
+    #[allow(clippy::type_complexity)]
+    fn rows<'a, const BPP: usize, const K: usize>(
+        band: &'a mut [u8],
+        above: &'a [u8],
+    ) -> ([&'a mut [[u8; BPP]]; K], &'a [[u8; BPP]]) {
+        let mut it = band.chunks_exact_mut(above.len());
+        (std::array::from_fn(|_| it.next().unwrap()[1..].as_chunks_mut().0), above[1..].as_chunks().0)
+    }
+
+    /// `paeth` in each 16-bit lane, and the byte it makes of `x`.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn step(a: __m128i, b: __m128i, c: __m128i, x: __m128i) -> __m128i {
+        let thresh = _mm_sub_epi16(_mm_add_epi16(c, _mm_add_epi16(c, c)), _mm_add_epi16(a, b));
+        let lo = _mm_min_epi16(a, b);
+        let hi = _mm_max_epi16(a, b);
+        let t0 = _mm_blendv_epi8(lo, c, _mm_cmpgt_epi16(hi, thresh));
+        let pred = _mm_blendv_epi8(hi, t0, _mm_cmpgt_epi16(thresh, lo));
+        _mm_and_si128(_mm_add_epi16(x, pred), _mm_set1_epi16(0xff))
+    }
+
+    /// `step` in the 16 lanes of a 256-bit register.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn step_wide(a: __m256i, b: __m256i, c: __m256i, x: __m256i) -> __m256i {
+        let thresh = _mm256_sub_epi16(_mm256_add_epi16(c, _mm256_add_epi16(c, c)), _mm256_add_epi16(a, b));
+        let lo = _mm256_min_epi16(a, b);
+        let hi = _mm256_max_epi16(a, b);
+        let t0 = _mm256_blendv_epi8(lo, c, _mm256_cmpgt_epi16(hi, thresh));
+        let pred = _mm256_blendv_epi8(hi, t0, _mm256_cmpgt_epi16(thresh, lo));
+        _mm256_and_si256(_mm256_add_epi16(x, pred), _mm256_set1_epi16(0xff))
+    }
+
+    /// The `b` of each lane of 8, for pixels of `BPP` bytes: each row's from the row before, the first's from `top`.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn above<const BPP: usize>(out: __m128i, top: [u8; BPP]) -> __m128i {
+        let mut t = 0i32;
+        for (i, &v) in top.iter().enumerate() {
+            t |= (v as i32) << (16 * i);
+        }
+        let below = if BPP == 1 { _mm_slli_si128::<2>(out) } else { _mm_slli_si128::<4>(out) };
+        _mm_or_si128(below, _mm_cvtsi32_si128(t))
+    }
+
+    /// `above` for 16 lanes and pixels of 4 bytes: a row's lanes are a 64-bit quarter, and one permutation moves them
+    /// up.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn above_wide(out: __m256i, top: [u8; 4]) -> __m256i {
+        let up = _mm256_permute4x64_epi64::<0b10_01_00_00>(out);
+        _mm256_blend_epi32::<0b0000_0011>(up, _mm256_cvtepu8_epi16(_mm_cvtsi32_si128(i32::from_le_bytes(top))))
+    }
+
+    /// Step `t` of a band of 8 lanes where some row has no pixel, at the start of the band or at its end.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn edge<const BPP: usize, const K: usize>(
+        rows: &mut [&mut [[u8; BPP]]; K],
+        top: &[[u8; BPP]],
+        t: usize,
+        out: &mut __m128i,
+        c: &mut __m128i,
+    ) {
+        let w = top.len();
+        let mut x = [0u8; 8];
+        for (k, row) in rows.iter().enumerate() {
+            if t >= k && t - k < w {
+                x[k * BPP..][..BPP].copy_from_slice(&row[t - k]);
+            }
+        }
+        let b = above::<BPP>(*out, if t < w { top[t] } else { [0; BPP] });
+        *out = step(*out, b, *c, _mm_cvtepu8_epi16(_mm_cvtsi64_si128(i64::from_le_bytes(x))));
+        *c = b;
+        let got = _mm_cvtsi128_si64(_mm_packus_epi16(*out, *out)).to_le_bytes();
+        for (k, row) in rows.iter_mut().enumerate() {
+            if t >= k && t - k < w {
+                row[t - k].copy_from_slice(&got[k * BPP..][..BPP]);
+            }
+        }
+    }
+
+    /// `edge` for 16 lanes and pixels of 4 bytes.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn edge_wide(rows: &mut [&mut [[u8; 4]]; 4], top: &[[u8; 4]], t: usize, out: &mut __m256i, c: &mut __m256i) {
+        let w = top.len();
+        let mut x = [0u8; 16];
+        for (k, row) in rows.iter().enumerate() {
+            if t >= k && t - k < w {
+                x[k * 4..][..4].copy_from_slice(&row[t - k]);
+            }
+        }
+        let b = above_wide(*out, if t < w { top[t] } else { [0; 4] });
+        let lo = i64::from_le_bytes(x[..8].try_into().unwrap());
+        let hi = i64::from_le_bytes(x[8..].try_into().unwrap());
+        *out = step_wide(*out, b, *c, _mm256_cvtepu8_epi16(_mm_set_epi64x(hi, lo)));
+        *c = b;
+        let got = packed_wide(*out);
+        let got = [_mm_cvtsi128_si64(got).to_le_bytes(), _mm_extract_epi64::<1>(got).to_le_bytes()].concat();
+        for (k, row) in rows.iter_mut().enumerate() {
+            if t >= k && t - k < w {
+                row[t - k].copy_from_slice(&got[k * 4..][..4]);
+            }
+        }
+    }
+
+    /// The bytes of 16 lanes, in order.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    fn packed_wide(out: __m256i) -> __m128i {
+        // packus packs within each 128-bit half: rows 0 and 1 in the first quarter, 2 and 3 in the third.
+        _mm256_castsi256_si128(_mm256_permute4x64_epi64::<0b00_00_10_00>(_mm256_packus_epi16(out, out)))
+    }
+
+    /// A band of 8 rows of pixels of 1 byte.
+    #[target_feature(enable = "avx2")]
+    pub(super) fn paeth_1(band: &mut [u8], above_band: &[u8]) {
+        const K: usize = 8;
+        let (mut rows, top) = rows::<1, K>(band, above_band);
+        let w = top.len();
+        let (mut out, mut c) = (_mm_setzero_si128(), _mm_setzero_si128());
+        for t in 0..K - 1 {
+            edge(&mut rows, top, t, &mut out, &mut c);
+        }
+        if w > K - 1 {
+            // Every row has a pixel at these steps: row k's from K - 1 - k on.
+            let m = w - (K - 1);
+            let mut k = 0;
+            let [r0, r1, r2, r3, r4, r5, r6, r7] = rows.each_mut().map(|r| {
+                k += 1;
+                &mut r[K - k..][..m]
+            });
+            let top = &top[K - 1..][..m];
+            for j in 0..m {
+                let x = _mm_cvtsi32_si128(r0[j][0] as i32);
+                let x = _mm_insert_epi8::<1>(x, r1[j][0] as i32);
+                let x = _mm_insert_epi8::<2>(x, r2[j][0] as i32);
+                let x = _mm_insert_epi8::<3>(x, r3[j][0] as i32);
+                let x = _mm_insert_epi8::<4>(x, r4[j][0] as i32);
+                let x = _mm_insert_epi8::<5>(x, r5[j][0] as i32);
+                let x = _mm_insert_epi8::<6>(x, r6[j][0] as i32);
+                let x = _mm_insert_epi8::<7>(x, r7[j][0] as i32);
+                let b = above::<1>(out, top[j]);
+                out = step(out, b, c, _mm_cvtepu8_epi16(x));
+                c = b;
+                let p = _mm_packus_epi16(out, out);
+                r0[j][0] = _mm_extract_epi8::<0>(p) as u8;
+                r1[j][0] = _mm_extract_epi8::<1>(p) as u8;
+                r2[j][0] = _mm_extract_epi8::<2>(p) as u8;
+                r3[j][0] = _mm_extract_epi8::<3>(p) as u8;
+                r4[j][0] = _mm_extract_epi8::<4>(p) as u8;
+                r5[j][0] = _mm_extract_epi8::<5>(p) as u8;
+                r6[j][0] = _mm_extract_epi8::<6>(p) as u8;
+                r7[j][0] = _mm_extract_epi8::<7>(p) as u8;
+            }
+        }
+        for t in w.max(K - 1)..w + K - 1 {
+            edge(&mut rows, top, t, &mut out, &mut c);
+        }
+    }
+
+    /// A band of 4 rows of pixels of 2 bytes.
+    #[target_feature(enable = "avx2")]
+    pub(super) fn paeth_2(band: &mut [u8], above_band: &[u8]) {
+        const K: usize = 4;
+        let (mut rows, top) = rows::<2, K>(band, above_band);
+        let w = top.len();
+        let (mut out, mut c) = (_mm_setzero_si128(), _mm_setzero_si128());
+        for t in 0..K - 1 {
+            edge(&mut rows, top, t, &mut out, &mut c);
+        }
+        if w > K - 1 {
+            let m = w - (K - 1);
+            let mut k = 0;
+            let [r0, r1, r2, r3] = rows.each_mut().map(|r| {
+                k += 1;
+                &mut r[K - k..][..m]
+            });
+            let top = &top[K - 1..][..m];
+            for j in 0..m {
+                let x = _mm_cvtsi32_si128(u16::from_le_bytes(r0[j]) as i32);
+                let x = _mm_insert_epi16::<1>(x, u16::from_le_bytes(r1[j]) as i32);
+                let x = _mm_insert_epi16::<2>(x, u16::from_le_bytes(r2[j]) as i32);
+                let x = _mm_insert_epi16::<3>(x, u16::from_le_bytes(r3[j]) as i32);
+                let b = above::<2>(out, top[j]);
+                out = step(out, b, c, _mm_cvtepu8_epi16(x));
+                c = b;
+                let p = _mm_packus_epi16(out, out);
+                r0[j] = (_mm_extract_epi16::<0>(p) as u16).to_le_bytes();
+                r1[j] = (_mm_extract_epi16::<1>(p) as u16).to_le_bytes();
+                r2[j] = (_mm_extract_epi16::<2>(p) as u16).to_le_bytes();
+                r3[j] = (_mm_extract_epi16::<3>(p) as u16).to_le_bytes();
+            }
+        }
+        for t in w.max(K - 1)..w + K - 1 {
+            edge(&mut rows, top, t, &mut out, &mut c);
+        }
+    }
+
+    /// A band of 4 rows of pixels of 4 bytes, in the four quarters of a 256-bit register.
+    #[target_feature(enable = "avx2")]
+    pub(super) fn paeth_4(band: &mut [u8], above_band: &[u8]) {
+        const K: usize = 4;
+        let (mut rows, top) = rows::<4, K>(band, above_band);
+        let w = top.len();
+        let (mut out, mut c) = (_mm256_setzero_si256(), _mm256_setzero_si256());
+        for t in 0..K - 1 {
+            edge_wide(&mut rows, top, t, &mut out, &mut c);
+        }
+        if w > K - 1 {
+            let m = w - (K - 1);
+            let mut k = 0;
+            let [r0, r1, r2, r3] = rows.each_mut().map(|r| {
+                k += 1;
+                &mut r[K - k..][..m]
+            });
+            let top = &top[K - 1..][..m];
+            for j in 0..m {
+                let x = _mm_cvtsi32_si128(i32::from_le_bytes(r0[j]));
+                let x = _mm_insert_epi32::<1>(x, i32::from_le_bytes(r1[j]));
+                let x = _mm_insert_epi32::<2>(x, i32::from_le_bytes(r2[j]));
+                let x = _mm_insert_epi32::<3>(x, i32::from_le_bytes(r3[j]));
+                let b = above_wide(out, top[j]);
+                out = step_wide(out, b, c, _mm256_cvtepu8_epi16(x));
+                c = b;
+                let p = packed_wide(out);
+                r0[j] = _mm_cvtsi128_si32(p).to_le_bytes();
+                r1[j] = _mm_extract_epi32::<1>(p).to_le_bytes();
+                r2[j] = _mm_extract_epi32::<2>(p).to_le_bytes();
+                r3[j] = _mm_extract_epi32::<3>(p).to_le_bytes();
+            }
+        }
+        for t in w.max(K - 1)..w + K - 1 {
+            edge_wide(&mut rows, top, t, &mut out, &mut c);
         }
     }
 }
@@ -1617,6 +2030,8 @@ pub struct PngParams {
     pub image_gamma: i32,
     /// `img_colorspace_ref`.
     pub colorspace_ref: i32,
+    /// [`Kernels::PLAIN`], or the same compiled for a feature that the CPU has.
+    pub kernels: Kernels,
 }
 
 /// The result of `write_png`.
@@ -1900,14 +2315,17 @@ pub fn write_png(info: &PngInfo, data: &[u8], p: &PngParams, slots: &mut SlotAll
         // png_read_start_row: the buffers, and the zstream.
         let max_row = rowbytes(64, (info.width + 7) & !7) + 1 + 8;
         let mut r = Rows {
-            inp: Input { d: data, pos: info.idat_data, crc: 0, chunk_name: C_IDAT },
-            idat_size: info.idat_size,
-            z: Inflate::new(true, 15),
-            zin: Vec::new(),
-            zin_pos: 0,
-            zstream_ended: false,
+            idat: Idat {
+                inp: Input { d: data, pos: info.idat_data, crc: 0, chunk_name: C_IDAT },
+                idat_size: info.idat_size,
+                z: Inflate::new(true, 15),
+                zin: Vec::new(),
+                zin_pos: 0,
+                zstream_ended: false,
+            },
             row_buf: vec![0u8; max_row],
             prev_row: vec![0u8; max_row],
+            kernels: p.kernels,
             t,
             palette: palette.clone(),
             trans_alpha: info.trans_alpha.clone(),
@@ -1920,7 +2338,7 @@ pub fn write_png(info: &PngInfo, data: &[u8], p: &PngParams, slots: &mut SlotAll
             file_pixel_depth: info.pixel_depth as u8,
         };
         // The CRC runs over the chunk name and what follows.
-        r.inp.crc = zlib_rs::crc32::crc32(0, &C_IDAT.to_be_bytes());
+        r.idat.inp.crc = zlib_rs::crc32::crc32(0, &C_IDAT.to_be_bytes());
         match color_type {
             COLOR_PALETTE => {
                 let palette_obj = w.new_obj();
@@ -1981,8 +2399,12 @@ pub fn write_png(info: &PngInfo, data: &[u8], p: &PngParams, slots: &mut SlotAll
                         return Err(Fail::xmalloc(smask_size));
                     }
                     w.op(Op::BeginStream);
-                    let image = read_image(&mut r, info, out_depth)?;
-                    let px = split_alpha(image, device_rgb, bit_depth == 16, &mut smask);
+                    let px = if info.interlace_type == 0 {
+                        read_image_split(&mut r, info, out_depth, device_rgb, bit_depth == 16, &mut smask)?
+                    } else {
+                        let image = read_image(&mut r, info, out_depth)?;
+                        split_alpha(image, device_rgb, bit_depth == 16, &mut smask)
+                    };
                     w.raw(px);
                     w.op(Op::EndStream);
                     w.op(Op::Flush);
@@ -2028,83 +2450,289 @@ fn read_image(r: &mut Rows<'_>, info: &PngInfo, out_depth: u32) -> Result<Vec<u8
     let mut image = Vec::new();
     if info.interlace_type == 0 {
         let _ = image.try_reserve_exact(total);
-        let file_row = rowbytes(info.pixel_depth, info.width);
-        r.prev_row[..file_row + 1].fill(0);
         let used_bits = (info.width as usize * out_depth as usize) % 8;
         let keep_mask: u8 = if used_bits == 0 { 0xff } else { !(0xffu8 >> used_bits) };
-        for _ in 0..h {
-            let ri = r.read_row(info.width)?;
-            if image.try_reserve(out_rowbytes).is_err() {
-                return Err(Fail::xmalloc(image.len() + out_rowbytes));
-            }
-            image.extend_from_slice(&r.row_buf[1..=ri.rowbytes]);
-            // png_combine_row keeps the bits past the last pixel from what the row buffer held before: malloc's
-            // leftovers in the C.  Zero here.
-            let last = image.len() - 1;
-            image[last] &= keep_mask;
-        }
-    } else {
-        // The passes write each row in pieces, so it is zeroed first: by the allocator, if the whole can be had (asked
-        // for and given back first, as `vec!` cannot fail softly), and otherwise row by row as the passes reach them.
-        if Vec::<u8>::new().try_reserve_exact(total).is_ok() {
-            image = vec![0u8; total];
-        }
-        let reach = |image: &mut Vec<u8>, end: usize| -> Result<(), Fail> {
-            if image.len() < end {
-                if image.try_reserve(end - image.len()).is_err() {
-                    return Err(Fail::xmalloc(end));
-                }
-                image.resize(end, 0);
-            }
-            Ok(())
-        };
-        const PASS_START: [u32; 7] = [0, 4, 0, 2, 0, 1, 0];
-        const PASS_INC: [u32; 7] = [8, 8, 4, 4, 2, 2, 1];
-        const PASS_YSTART: [u32; 7] = [0, 0, 4, 0, 2, 0, 1];
-        const PASS_YINC: [u32; 7] = [8, 8, 8, 4, 4, 2, 2];
-        let file_row = rowbytes(info.pixel_depth, info.width);
-        for pass in 0..7 {
-            r.prev_row[..file_row + 1].fill(0);
-            let (xs, xi, ys, yi) = (PASS_START[pass], PASS_INC[pass], PASS_YSTART[pass], PASS_YINC[pass]);
-            let min_width = match pass {
-                1 => 5,
-                3 => 3,
-                5 => 2,
-                _ => 1,
-            };
-            if info.width < min_width {
-                continue;
-            }
-            let iwidth = (info.width + xi - 1 - xs) / xi;
-            let mut y = ys as usize;
-            while y < h {
-                let ri = r.read_row(iwidth)?;
-                reach(&mut image, (y + 1) * out_rowbytes)?;
-                let dst = &mut image[y * out_rowbytes..(y + 1) * out_rowbytes];
-                let pd = ri.pixel_depth as usize;
-                if pd >= 8 {
-                    let n = pd / 8;
-                    for i in 0..iwidth as usize {
-                        let x = xs as usize + i * xi as usize;
-                        dst[x * n..(x + 1) * n].copy_from_slice(&r.row_buf[1 + i * n..1 + (i + 1) * n]);
-                    }
-                } else {
-                    let mask = ((1u16 << pd) - 1) as u8;
-                    for i in 0..iwidth as usize {
-                        let sb = i * pd;
-                        let v = (r.row_buf[1 + (sb >> 3)] >> (8 - pd - (sb & 7))) & mask;
-                        let db = (xs as usize + i * xi as usize) * pd;
-                        let sh = 8 - pd - (db & 7);
-                        dst[db >> 3] = (dst[db >> 3] & !(mask << sh)) | (v << sh);
-                    }
-                }
-                y += yi as usize;
-            }
-        }
-        reach(&mut image, total)?;
+        let mut sink = Whole { image, out_rowbytes, keep_mask };
+        read_rows(r, info, &mut sink)?;
+        return Ok(sink.image);
     }
-    r.finish_idat()?;
+    // The passes write each row in pieces, so it is zeroed first: by the allocator, if the whole can be had (asked
+    // for and given back first, as `vec!` cannot fail softly), and otherwise row by row as the passes reach them.
+    if Vec::<u8>::new().try_reserve_exact(total).is_ok() {
+        image = vec![0u8; total];
+    }
+    let reach = |image: &mut Vec<u8>, end: usize| -> Result<(), Fail> {
+        if image.len() < end {
+            if image.try_reserve(end - image.len()).is_err() {
+                return Err(Fail::xmalloc(end));
+            }
+            image.resize(end, 0);
+        }
+        Ok(())
+    };
+    const PASS_START: [u32; 7] = [0, 4, 0, 2, 0, 1, 0];
+    const PASS_INC: [u32; 7] = [8, 8, 4, 4, 2, 2, 1];
+    const PASS_YSTART: [u32; 7] = [0, 0, 4, 0, 2, 0, 1];
+    const PASS_YINC: [u32; 7] = [8, 8, 8, 4, 4, 2, 2];
+    let file_row = rowbytes(info.pixel_depth, info.width);
+    for pass in 0..7 {
+        r.prev_row[..file_row + 1].fill(0);
+        let (xs, xi, ys, yi) = (PASS_START[pass], PASS_INC[pass], PASS_YSTART[pass], PASS_YINC[pass]);
+        let min_width = match pass {
+            1 => 5,
+            3 => 3,
+            5 => 2,
+            _ => 1,
+        };
+        if info.width < min_width {
+            continue;
+        }
+        let iwidth = (info.width + xi - 1 - xs) / xi;
+        let mut y = ys as usize;
+        while y < h {
+            let ri = r.read_row(iwidth)?;
+            reach(&mut image, (y + 1) * out_rowbytes)?;
+            let dst = &mut image[y * out_rowbytes..(y + 1) * out_rowbytes];
+            let pd = ri.pixel_depth as usize;
+            if pd >= 8 {
+                let n = pd / 8;
+                for i in 0..iwidth as usize {
+                    let x = xs as usize + i * xi as usize;
+                    dst[x * n..(x + 1) * n].copy_from_slice(&r.row_buf[1 + i * n..1 + (i + 1) * n]);
+                }
+            } else {
+                let mask = ((1u16 << pd) - 1) as u8;
+                for i in 0..iwidth as usize {
+                    let sb = i * pd;
+                    let v = (r.row_buf[1 + (sb >> 3)] >> (8 - pd - (sb & 7))) & mask;
+                    let db = (xs as usize + i * xi as usize) * pd;
+                    let sh = 8 - pd - (db & 7);
+                    dst[db >> 3] = (dst[db >> 3] & !(mask << sh)) | (v << sh);
+                }
+            }
+            y += yi as usize;
+        }
+    }
+    reach(&mut image, total)?;
+    r.idat.finish_idat()?;
     Ok(image)
+}
+
+/// `read_image` and `split_alpha` in one pass, for an image that is not interlaced: each row goes straight to the
+/// colour and to `smask` as it comes, as the C's `write_png_gray_alpha` and `write_png_rgb_alpha` do, and is never held
+/// with its alpha.  The bytes are those of the two steps: a row of such an image is whole pixels, and no bits are left
+/// over at its end for `read_image`'s mask.  It holds less than they would, the colour and the alpha and no more, so an
+/// image whose rows are all there and that memory does not hold fails later than there if at all; it fails with the
+/// size `read_image` would have asked for.
+fn read_image_split(
+    r: &mut Rows<'_>,
+    info: &PngInfo,
+    out_depth: u32,
+    rgb: bool,
+    wide: bool,
+    smask: &mut Vec<u8>,
+) -> Result<Vec<u8>, Fail> {
+    let (color_bytes, total) = match (rgb, wide) {
+        (false, false) => (1, 2),
+        (false, true) => (2, 4),
+        (true, false) => (3, 4),
+        (true, true) => (6, 8),
+    };
+    let out_rowbytes = rowbytes(out_depth, info.width);
+    let color_row = out_rowbytes / total * color_bytes;
+    let mut color = Vec::new();
+    // A byte more than the colour, for `split_row`'s last store.
+    let _ = color.try_reserve_exact(color_row * info.height as usize + 1);
+    let split = r.kernels.split;
+    let mut sink = Split { color, smask, color_row, out_rowbytes, color_bytes, total, rgb, wide, split };
+    read_rows(r, info, &mut sink)?;
+    let mut color = sink.color;
+    color.shrink_to_fit();
+    Ok(color)
+}
+
+/// Where `read_rows` puts the rows of an image.
+trait RowSink {
+    /// Room for row `y`, which has just been read, or `xmalloc`'s end.
+    fn reserve(&mut self, y: usize) -> Result<(), Fail>;
+    /// The next row.
+    fn take(&mut self, row: &[u8]);
+}
+
+/// The rows of a picture that is not interlaced, from `read_plain_rows` where it may and from `read_row` elsewhere, to
+/// `sink`.
+fn read_rows(r: &mut Rows<'_>, info: &PngInfo, sink: &mut impl RowSink) -> Result<(), Fail> {
+    if let Some(buf) = r.group_buffer(info.width, info.height) {
+        r.read_plain_rows(info.width, info.height, buf, sink)?;
+    } else {
+        let file_row = rowbytes(info.pixel_depth, info.width);
+        r.prev_row[..file_row + 1].fill(0);
+        for y in 0..info.height as usize {
+            let ri = r.read_row(info.width)?;
+            sink.reserve(y)?;
+            sink.take(&r.row_buf[1..=ri.rowbytes]);
+        }
+    }
+    r.idat.finish_idat()
+}
+
+/// `read_image`'s rows, one after the other.
+struct Whole {
+    image: Vec<u8>,
+    out_rowbytes: usize,
+    keep_mask: u8,
+}
+
+impl RowSink for Whole {
+    fn reserve(&mut self, y: usize) -> Result<(), Fail> {
+        let end = (y + 1) * self.out_rowbytes;
+        if self.image.try_reserve(end - self.image.len()).is_err() {
+            return Err(Fail::xmalloc(end));
+        }
+        Ok(())
+    }
+
+    fn take(&mut self, row: &[u8]) {
+        self.image.extend_from_slice(row);
+        // png_combine_row keeps the bits past the last pixel from what the row buffer held before: malloc's leftovers
+        // in the C.  Zero here.
+        let last = self.image.len() - 1;
+        self.image[last] &= self.keep_mask;
+    }
+}
+
+/// `read_image_split`'s rows: each pixel's first `color_bytes` of `total` to `color`, and the byte after them to
+/// `smask`.
+struct Split<'a> {
+    color: Vec<u8>,
+    smask: &'a mut Vec<u8>,
+    color_row: usize,
+    out_rowbytes: usize,
+    color_bytes: usize,
+    total: usize,
+    rgb: bool,
+    wide: bool,
+    split: fn(&[u8], &mut [u8], &mut [u8], bool, bool),
+}
+
+impl RowSink for Split<'_> {
+    fn reserve(&mut self, y: usize) -> Result<(), Fail> {
+        if self.color.try_reserve((y + 1) * self.color_row + 1 - self.color.len()).is_err() {
+            return Err(Fail::xmalloc((y + 1) * self.out_rowbytes));
+        }
+        Ok(())
+    }
+
+    fn take(&mut self, row: &[u8]) {
+        let n = row.len() / self.total;
+        let (c0, a0) = (self.color.len(), self.smask.len());
+        self.color.resize(c0 + n * self.color_bytes + 1, 0);
+        self.smask.resize(a0 + n, 0);
+        (self.split)(row, &mut self.color[c0..], &mut self.smask[a0..], self.rgb, self.wide);
+        self.color.truncate(c0 + n * self.color_bytes);
+    }
+}
+
+/// One row of `split_alpha`: the colour of each pixel to `color`, and the first byte of its alpha to `alpha`.  `rgb`
+/// and `wide` say what a pixel is, as there.  `color` has a byte more than the colour, and `alpha` a byte for each
+/// pixel.
+pub fn split_row(row: &[u8], color: &mut [u8], alpha: &mut [u8], rgb: bool, wide: bool) {
+    match (rgb, wide) {
+        (false, false) => split_blocks::<1, 2>(row, color, alpha),
+        (false, true) => split_blocks::<2, 4>(row, color, alpha),
+        (true, false) => split_blocks::<3, 4>(row, color, alpha),
+        (true, true) => split_blocks::<6, 8>(row, color, alpha),
+    }
+}
+
+/// [`split_row`] compiled for AVX2, which only a CPU that has it may call: some three times as fast, gray and alpha of
+/// a byte each by the compiler's `vpshufb`, and RGBA by `split_rgba_avx2`.
+///
+/// # Safety
+/// The CPU has AVX2.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+pub fn split_row_avx2(row: &[u8], color: &mut [u8], alpha: &mut [u8], rgb: bool, wide: bool) {
+    match (rgb, wide) {
+        (false, false) => split_gray_avx2(row, color, alpha),
+        (false, true) => split_blocks::<2, 4>(row, color, alpha),
+        (true, false) => split_rgba_avx2(row, color, alpha),
+        (true, true) => split_blocks::<6, 8>(row, color, alpha),
+    }
+}
+
+/// Gray and alpha of a byte each.  A function of its own, since in a larger one the compiler may not see the loop as
+/// one to put in vector registers.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+#[inline(never)]
+fn split_gray_avx2(row: &[u8], color: &mut [u8], alpha: &mut [u8]) {
+    for ((p, c), a) in row.as_chunks::<2>().0.iter().zip(color.iter_mut()).zip(alpha.iter_mut()) {
+        *c = p[0];
+        *a = p[1];
+    }
+}
+
+/// RGBA of a byte each, eight pixels at a step: `vpshufb` puts the colour of each 128-bit half before its alpha, and
+/// `vpermd` the two colours together, 24 bytes, before the two alphas.  The loads and stores are of whole words, which
+/// the compiler makes one load and three stores.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+#[inline(never)]
+fn split_rgba_avx2(row: &[u8], color: &mut [u8], alpha: &mut [u8]) {
+    use core::arch::x86_64::*;
+    let (px, _) = row.as_chunks::<32>();
+    let order = _mm256_setr_epi8(
+        0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 3, 7, 11, 15, 0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 3, 7, 11, 15,
+    );
+    let gather = _mm256_setr_epi32(0, 1, 2, 4, 5, 6, 3, 7);
+    // `color` has 24 bytes for each 8 pixels and `alpha` 8, so the pieces of all three come out alike.
+    for ((s, c), a) in px.iter().zip(color.as_chunks_mut::<24>().0).zip(alpha.as_chunks_mut::<8>().0) {
+        let q = |k: usize| i64::from_le_bytes(s[k * 8..][..8].try_into().unwrap());
+        let v = _mm256_setr_epi64x(q(0), q(1), q(2), q(3));
+        let v = _mm256_permutevar8x32_epi32(_mm256_shuffle_epi8(v, order), gather);
+        let (lo, hi) = (_mm256_castsi256_si128(v), _mm256_extracti128_si256::<1>(v));
+        c[..8].copy_from_slice(&_mm_cvtsi128_si64(lo).to_le_bytes());
+        c[8..16].copy_from_slice(&_mm_extract_epi64::<1>(lo).to_le_bytes());
+        c[16..].copy_from_slice(&_mm_cvtsi128_si64(hi).to_le_bytes());
+        *a = _mm_extract_epi64::<1>(hi).to_le_bytes();
+    }
+    let done = px.len() * 8;
+    split_blocks::<3, 4>(&row[done * 4..], &mut color[done * 3..], &mut alpha[done..]);
+}
+
+/// [`split_row`] for pixels of `TOTAL` bytes, `COLOR` of them colour, in blocks of 16 pixels with nothing to check
+/// inside.  The colour of a pixel of four bytes goes as all four, each store over the alpha the one before it left,
+/// which is why `dc` has a byte more than the colour.
+#[inline(always)]
+fn split_blocks<const COLOR: usize, const TOTAL: usize>(row: &[u8], dc: &mut [u8], da: &mut [u8]) {
+    const B: usize = 16;
+    let n = row.len() / TOTAL;
+    let (row, dc, da) = (&row[..n * TOTAL], &mut dc[..n * COLOR + 1], &mut da[..n]);
+    let blocks = n / B;
+    for k in 0..blocks {
+        let s = &row[k * B * TOTAL..(k + 1) * B * TOTAL];
+        let a = &mut da[k * B..(k + 1) * B];
+        for i in 0..B {
+            a[i] = s[i * TOTAL + COLOR];
+        }
+        let c = &mut dc[k * B * COLOR..(k + 1) * B * COLOR + 1];
+        for i in 0..B {
+            if COLOR == 3 && TOTAL == 4 {
+                c[i * 3..i * 3 + 4].copy_from_slice(&s[i * 4..i * 4 + 4]);
+            } else {
+                for j in 0..COLOR {
+                    c[i * COLOR + j] = s[i * TOTAL + j];
+                }
+            }
+        }
+    }
+    for i in blocks * B..n {
+        da[i] = row[i * TOTAL + COLOR];
+        for j in 0..COLOR {
+            dc[i * COLOR + j] = row[i * TOTAL + j];
+        }
+    }
 }
 
 /// `write_gray_pixel_8`, `write_gray_pixel_16`, `write_rgb_pixel_8`, `write_rgb_pixel_16`, and the loop writing the
@@ -2195,10 +2823,9 @@ mod tests {
             seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
             (seed >> 16) as u8
         };
-        for (depth, bpp) in [(1u8, 1usize), (8, 1), (16, 2), (24, 3), (32, 4), (48, 6), (64, 8)] {
+        for (depth, bpp) in [(1u32, 1usize), (8, 1), (16, 2), (24, 3), (32, 4), (48, 6), (64, 8)] {
             for pixels in [1usize, 2, 3, 5, 16, 17, 64, 251] {
-                let n = pixels * bpp;
-                let ri = RowInfo { width: pixels as u32, color_type: 0, bit_depth: 8, channels: bpp as u8, pixel_depth: depth, rowbytes: n };
+                let n = rowbytes(depth, pixels as u32);
                 for round in 0..40 {
                     // Noise, flat runs and extremes, since each side of Paeth's comparisons must come up.
                     let mut byte = |k: usize| match round % 4 {
@@ -2211,11 +2838,41 @@ mod tests {
                     let row: Vec<u8> = (0..=n).map(&mut byte).collect();
                     for filter in 1..=4 {
                         let mut got = row.clone();
-                        read_filter_row(&ri, &mut got, &prev, filter);
+                        got[0] = filter;
+                        unfilter_rows(&mut got, &prev, bpp);
                         let mut want = row[1..].to_vec();
                         c_filter(&mut want, &prev[1..], bpp, filter);
                         assert_eq!(&got[1..], &want[..], "depth {depth} pixels {pixels} filter {filter}");
                     }
+                }
+            }
+        }
+    }
+
+    /// The predictor of `filter_lanes`, against libpng's `png_read_filter_row_paeth_1byte_pixel`, over all 2^24 inputs.
+    #[test]
+    fn paeth_is_libpngs_for_every_input() {
+        for a in 0..256i32 {
+            for b in 0..256i32 {
+                for c in 0..256i32 {
+                    let p = b - c;
+                    let mut pc = a - c;
+                    let mut pa = p.abs();
+                    let pb = pc.abs();
+                    pc = (p + pc).abs();
+                    let mut want = a;
+                    if pb < pa {
+                        pa = pb;
+                        want = b;
+                    }
+                    if pc < pa {
+                        want = c;
+                    }
+                    // The first pixel's predictor is the byte above it, c here, so that pixel comes out as a.
+                    let mut row = [(a - c).rem_euclid(256) as u8, 0];
+                    filter_lanes::<1>(&mut row, &[c as u8, b as u8], 4);
+                    assert_eq!(row[0] as i32, a);
+                    assert_eq!(row[1] as i32, want, "a {a} b {b} c {c}");
                 }
             }
         }
@@ -2232,6 +2889,67 @@ mod tests {
         assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], false, true), (vec![1, 2, 5, 6], vec![3, 7]));
         assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], true, false), (vec![1, 2, 3, 5, 6, 7], vec![4, 8]));
         assert_eq!(split(&[1, 2, 3, 4, 5, 6, 7, 8], true, true), (vec![1, 2, 3, 4, 5, 6], vec![7]));
+        // A row at a time, as `read_image_split` does, across the blocks of `split_blocks` and what they leave over.
+        let mut seed = 5u32;
+        for (rgb, wide, total) in [(false, false, 2), (false, true, 4), (true, false, 4), (true, true, 8)] {
+            let color = if rgb { total * 3 / 4 } else { total / 2 };
+            for pixels in [0usize, 1, 7, 15, 16, 17, 31, 32, 33, 100] {
+                let row: Vec<u8> = (0..pixels * total)
+                    .map(|_| {
+                        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                        (seed >> 24) as u8
+                    })
+                    .collect();
+                let (want, want_alpha) = split(&row, rgb, wide);
+                let mut got = vec![0u8; pixels * color + 1];
+                let mut alpha = vec![0u8; pixels];
+                split_row(&row, &mut got, &mut alpha, rgb, wide);
+                got.pop();
+                assert_eq!((got, alpha), (want, want_alpha), "rgb {rgb} wide {wide} pixels {pixels}");
+            }
+        }
+    }
+
+    /// Rows that come several at a time, as `read_plain_rows` hands them over: each under the one before it, with runs
+    /// of Paeth around the bands' heights, among the other filters, at widths around a band's ends.
+    #[test]
+    fn a_group_of_rows_unfilters_as_its_rows_do() {
+        let mut seed = 99u32;
+        let mut rnd = move || {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            (seed >> 16) as u8
+        };
+        for bpp in [1usize, 2, 3, 4, 6, 8] {
+            for width in [1usize, 2, 3, 4, 7, 8, 9, 33, 100] {
+                let stride = width * bpp + 1;
+                for round in 0..12 {
+                    let h = 1 + (rnd() as usize % 40);
+                    let mut rows: Vec<u8> = (0..h * stride)
+                        .map(|k| if round % 4 == 3 { [0u8, 255][(rnd() & 1) as usize] } else { rnd() ^ k as u8 })
+                        .collect();
+                    for y in 0..h {
+                        rows[y * stride] = match round % 3 {
+                            0 => 4,
+                            1 => [4, 4, 4, 4, 4, 4, 0, 1, 2, 3][rnd() as usize % 10],
+                            _ => rnd() % 5,
+                        };
+                    }
+                    let prev: Vec<u8> = (0..stride).map(|_| rnd()).collect();
+                    let mut want = rows.clone();
+                    for y in 0..h {
+                        let (above, rest) = want.split_at_mut(y * stride);
+                        let above = if y == 0 { &prev[1..] } else { &above[(y - 1) * stride + 1..] };
+                        let filter = rest[0];
+                        if filter != 0 {
+                            c_filter(&mut rest[1..stride], above, bpp, filter);
+                        }
+                    }
+                    let mut got = rows.clone();
+                    unfilter_rows(&mut got, &prev, bpp);
+                    assert_eq!(got, want, "bpp {bpp} width {width} round {round}");
+                }
+            }
+        }
     }
 
     #[test]
@@ -2314,6 +3032,7 @@ mod tests {
             gamma: 1000,
             image_gamma: 2200,
             colorspace_ref: 0,
+            kernels: Kernels::PLAIN,
         };
         write_png(&info, data, &p, &mut SlotAlloc::default())
     }

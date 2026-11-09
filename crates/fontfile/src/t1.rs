@@ -122,6 +122,22 @@ const CC_TAB: [CcEntry; CS_MAX] = {
     t
 };
 
+/// Where `T1::getline_run` handed back to `t1_getline`.
+enum Run {
+    /// The line is full: this byte, as read and not yet decrypted, goes the general way, which grows the line.
+    Raw(u8),
+    /// A blank is stored, and the line ends in ` RD ` or ` -| ` where a charstring may follow.
+    Blank,
+    /// The end of the line is stored.
+    Eol,
+    /// A byte is stored, and the next one is not in the current block: `t1_getbyte` reads it.
+    Next,
+}
+
+/// What `t1_getline` watches for in the clear part, and `eexec_scan` how much of it it has seen.
+const EEXEC_STR: &[u8; 17] = b"currentfile eexec";
+const EEXEC_LEN: i32 = EEXEC_STR.len() as i32;
+
 /// A name that is not a range: `name == notdef`, the pointer.
 const NAME_NOTDEF: u32 = u32::MAX;
 
@@ -222,7 +238,13 @@ pub struct T1Input<'a> {
     pub tx_codes: Option<&'a CodeSet>,
     /// `st_tree` of `make_subset_tag`: tags already given out this run.
     pub used_tags: &'a [[u8; 6]],
+    /// Decrypts the bytes of a charstring that lie in one PFB block: [`decrypt_run`], or a function that gives the same bytes
+    /// and state.  The engine passes one that does eight bytes at a time in SSE2, which needs `unsafe`, which this crate forbids.
+    pub decrypt: DecryptRun,
 }
+
+/// `cdecrypt` over `src` into `dst`, from the state `r`; returns the state after.  As [`decrypt_run`].
+pub type DecryptRun = fn(src: &[u8], dst: &mut [u8], r: u16) -> u16;
 
 /// What `writet1` leaves in `t1_length1..3` and in the `fd_entry`.
 pub struct T1Output {
@@ -283,6 +305,9 @@ struct T1<'a> {
     arena: Vec<u8>,
     cs_tab: Vec<CsEntry>,
     cs_notdef: Option<usize>,
+    /// `cs_tab` by name for `cs_lookup`: open addressing, the first entry of each name, an index plus one in a slot, 0 for none.
+    /// Built at the first lookup, which comes after the last `cs_store`, and emptied wherever `cs_tab` is.
+    cs_index: Vec<u32>,
     cs_dict_start: Vec<u8>,
     cs_dict_end: Vec<u8>,
     cs_count: i32,
@@ -353,6 +378,7 @@ pub fn write_t1(
         arena: Vec::with_capacity(inp.font.len()),
         cs_tab: Vec::new(),
         cs_notdef: None,
+        cs_index: Vec::new(),
         cs_dict_start: Vec::new(),
         cs_dict_end: Vec::new(),
         cs_count: 0,
@@ -412,11 +438,31 @@ fn cdecrypt(cipher: u8, cr: &mut u16) -> u8 {
     plain
 }
 
+/// `cdecrypt` over `src` into `dst`, as far as the shorter goes, from the state `r`; returns the state after.  The
+/// [`DecryptRun`] of [`T1Input::decrypt`] that every other must equal.
+pub fn decrypt_run(src: &[u8], dst: &mut [u8], mut r: u16) -> u16 {
+    for (d, &cipher) in dst.iter_mut().zip(src) {
+        *d = cipher ^ (r >> 8) as u8;
+        r = (cipher as u32).wrapping_add(r as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
+    }
+    r
+}
+
 #[inline]
 fn cencrypt(plain: u8, cr: &mut u16) -> u8 {
     let cipher = plain ^ (*cr >> 8) as u8;
     *cr = (cipher as u32).wrapping_add(*cr as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
     cipher
+}
+
+/// The hash of a glyph name in `cs_index`.
+#[inline]
+fn cs_hash(name: &[u8]) -> u64 {
+    let mut h: u64 = 0;
+    for &b in name {
+        h = (h.rotate_left(5) ^ b as u64).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+    h
 }
 
 fn hexval(c: u8) -> i32 {
@@ -617,9 +663,72 @@ impl T1<'_> {
         Ok((f, r))
     }
 
+    /// The body of `t1_getline`'s loop for a PFB, from the byte `cipher` that has just been read, for as long as the next
+    /// byte lies in the same block: what the loop does to the line, the position, the block length, the cipher and `eexec_scan`,
+    /// with all of it in locals, since each store of a byte to the line would otherwise make the compiler load the fields
+    /// again.  `EEXEC` is `t1_in_eexec == 1`; the caller runs this only for 0 and 1.  It writes the state back on every
+    /// [`Run`], so the general code goes on from exactly where it would be.
+    #[inline(always)]
+    fn getline_run<const EEXEC: bool>(&mut self, cipher: u8, eexec_scan: &mut i32) -> Run {
+        let font = self.inp.font;
+        let watch = self.t1_cs && self.t1_cslen == 0;
+        let mut pos = self.pos;
+        let mut bl = self.t1_block_length;
+        let mut dr = self.t1_dr;
+        let mut lp = self.lp;
+        let mut scan = *eexec_scan;
+        let line = &mut self.line[..];
+        let mut cipher = cipher;
+        let run = loop {
+            if lp >= line.len() {
+                break Run::Raw(cipher);
+            }
+            let mut c = cipher;
+            if EEXEC {
+                c = cdecrypt(cipher, &mut dr);
+            }
+            // append_char_to_buf; a byte read from a block is never the -1 of the end of the file
+            if c == 9 {
+                c = 32;
+            } else if c == 13 {
+                c = 10;
+            }
+            if c != 32 || (lp > 0 && line[lp - 1] != 32) {
+                line[lp] = c;
+                lp += 1;
+            }
+            if !EEXEC && (0..EEXEC_LEN).contains(&scan) {
+                if line[scan as usize] == EEXEC_STR[scan as usize] {
+                    scan += 1;
+                } else {
+                    scan = -1;
+                }
+            }
+            if c == 10 {
+                break Run::Eol;
+            }
+            // The charstring test of `t1_getline`, whose suffixes end in a blank: with that blank last, `str_suffix` is
+            // a comparison of the last four bytes.
+            if watch && lp > 4 && line[lp - 1] == b' ' && (&line[lp - 4..lp] == b" RD " || &line[lp - 4..lp] == b" -| ") {
+                break Run::Blank;
+            }
+            if bl > 0 && pos < font.len() {
+                cipher = font[pos];
+                pos += 1;
+                bl -= 1;
+            } else {
+                break Run::Next;
+            }
+        };
+        self.pos = pos;
+        self.t1_block_length = bl;
+        self.t1_dr = dr;
+        self.lp = lp;
+        *eexec_scan = scan;
+        run
+    }
+
     fn t1_getline(&mut self) -> R<()> {
-        const EEXEC_STR: &[u8; 17] = b"currentfile eexec";
-        const EEXEC_LEN: i32 = 17;
         let mut eexec_scan: i32;
         loop {
             if self.eof {
@@ -635,36 +744,58 @@ impl T1<'_> {
                 return Ok(());
             }
             while !self.eof {
-                if self.t1_in_eexec == 1 {
-                    if self.t1_pfa {
-                        c = self.edecrypt(c as u8)? as i32;
+                // The bytes of a PFB block, all of them in one loop with the state in registers; it hands back
+                // at the end of a line, at a blank the charstring test below must see, and at the end of a block.
+                // A PFA, and a PFB after `t1_stop_eexec`, go a byte at a time below.
+                let mut stored = false;
+                if !self.t1_pfa && self.t1_in_eexec <= 1 {
+                    let run = if self.t1_in_eexec == 1 {
+                        self.getline_run::<true>(c as u8, &mut eexec_scan)
                     } else {
-                        c = cdecrypt(c as u8, &mut self.t1_dr) as i32;
+                        self.getline_run::<false>(c as u8, &mut eexec_scan)
+                    };
+                    match run {
+                        Run::Eol => break,
+                        Run::Blank => stored = true,
+                        Run::Next => {
+                            c = self.t1_getbyte()?;
+                            continue;
+                        }
+                        Run::Raw(b) => c = b as i32,
                     }
                 }
-                if self.lp >= self.line.len() {
-                    self.alloc_line(1)?;
-                }
-                // append_char_to_buf
-                if c == 9 {
-                    c = 32;
-                }
-                if c == 13 || c == -1 {
-                    c = 10;
-                }
-                if c != 32 || (self.lp > 0 && self.line[self.lp - 1] != 32) {
-                    self.line[self.lp] = c as u8;
-                    self.lp += 1;
-                }
-                if self.t1_in_eexec == 0 && eexec_scan >= 0 && eexec_scan < EEXEC_LEN {
-                    if self.line[eexec_scan as usize] == EEXEC_STR[eexec_scan as usize] {
-                        eexec_scan += 1;
-                    } else {
-                        eexec_scan = -1;
+                if !stored {
+                    if self.t1_in_eexec == 1 {
+                        if self.t1_pfa {
+                            c = self.edecrypt(c as u8)? as i32;
+                        } else {
+                            c = cdecrypt(c as u8, &mut self.t1_dr) as i32;
+                        }
                     }
-                }
-                if c == 10 || (self.t1_pfa && eexec_scan == EEXEC_LEN && c == 32) {
-                    break;
+                    if self.lp >= self.line.len() {
+                        self.alloc_line(1)?;
+                    }
+                    // append_char_to_buf
+                    if c == 9 {
+                        c = 32;
+                    }
+                    if c == 13 || c == -1 {
+                        c = 10;
+                    }
+                    if c != 32 || (self.lp > 0 && self.line[self.lp - 1] != 32) {
+                        self.line[self.lp] = c as u8;
+                        self.lp += 1;
+                    }
+                    if self.t1_in_eexec == 0 && eexec_scan >= 0 && eexec_scan < EEXEC_LEN {
+                        if self.line[eexec_scan as usize] == EEXEC_STR[eexec_scan as usize] {
+                            eexec_scan += 1;
+                        } else {
+                            eexec_scan = -1;
+                        }
+                    }
+                    if c == 10 || (self.t1_pfa && eexec_scan == EEXEC_LEN && c == 32) {
+                        break;
+                    }
                 }
                 // Both end in a blank: a look at the last byte saves two comparisons for each of the bytes of a font.
                 if self.t1_cs
@@ -689,14 +820,8 @@ impl T1<'_> {
                     // Most of a font is this: a run of bytes inside one block of a PFB goes faster than each through `t1_getbyte`.
                     if !self.t1_pfa && l > 0 && (l as i64) <= self.t1_block_length && self.pos + l as usize <= self.inp.font.len() {
                         let n = l as usize;
-                        let mut dr = self.t1_dr;
-                        let src = &self.inp.font[self.pos..self.pos + n];
-                        let dst = &mut self.line[self.lp..self.lp + n];
-                        for (d, &cipher) in dst.iter_mut().zip(src) {
-                            *d = cipher ^ (dr >> 8) as u8;
-                            dr = (cipher as u32).wrapping_add(dr as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
-                        }
-                        self.t1_dr = dr;
+                        let font = self.inp.font;
+                        self.t1_dr = (self.inp.decrypt)(&font[self.pos..self.pos + n], &mut self.line[self.lp..self.lp + n], self.t1_dr);
                         self.pos += n;
                         self.t1_block_length -= l as i64;
                         self.lp += n;
@@ -747,13 +872,13 @@ impl T1<'_> {
             return;
         }
         if self.t1_eexec_encrypt {
-            self.out.reserve(self.lp);
             let mut er = self.t1_er;
-            for i in 0..self.lp {
-                let cipher = self.line[i] ^ (er >> 8) as u8;
+            // An `extend` of a slice's map reserves once and leaves nothing in the loop but the cipher.
+            self.out.extend(self.line[..self.lp].iter().map(|&plain| {
+                let cipher = plain ^ (er >> 8) as u8;
                 er = (cipher as u32).wrapping_add(er as u32).wrapping_mul(52845).wrapping_add(22719) as u16;
-                self.out.push(cipher);
-            }
+                cipher
+            }));
             self.t1_er = er;
         } else {
             self.out.extend_from_slice(&self.line[..self.lp]);
@@ -1339,6 +1464,48 @@ impl T1<'_> {
         }
     }
 
+    /// The index of the first entry of `cs_tab` named `name`, which is what the C's walk of `cs_tab` finds.  A table of a
+    /// few entries is walked here too; a larger one is looked up in `cs_index`, which is made at the first lookup, since
+    /// `cs_mark` looks up each glyph of a subset and each `seac` part in a table of some hundreds or thousands of names.
+    fn cs_lookup(&mut self, name: &[u8]) -> Option<usize> {
+        let n = self.cs_tab.len();
+        if n < 32 {
+            return (0..n).find(|&i| self.name_of(&self.cs_tab[i]) == name);
+        }
+        if self.cs_index.is_empty() {
+            let mask = (2 * n).next_power_of_two() - 1;
+            let mut slots = vec![0u32; mask + 1];
+            for i in 0..n {
+                let key = self.name_of(&self.cs_tab[i]);
+                let mut h = cs_hash(key) as usize & mask;
+                loop {
+                    let v = slots[h];
+                    if v == 0 {
+                        slots[h] = i as u32 + 1;
+                        break;
+                    }
+                    if self.name_of(&self.cs_tab[v as usize - 1]) == key {
+                        break; // a later entry of a name that is there
+                    }
+                    h = (h + 1) & mask;
+                }
+            }
+            self.cs_index = slots;
+        }
+        let mask = self.cs_index.len() - 1;
+        let mut h = cs_hash(name) as usize & mask;
+        loop {
+            let v = self.cs_index[h];
+            if v == 0 {
+                return None;
+            }
+            if self.name_of(&self.cs_tab[v as usize - 1]) == name {
+                return Some(v as usize - 1);
+            }
+            h = (h + 1) & mask;
+        }
+    }
+
     fn cs_fail(&self, cs_name: Option<&[u8]>, subr: i32, msg: &[u8]) -> FontError {
         let mut m = Vec::new();
         match cs_name {
@@ -1433,7 +1600,7 @@ impl T1<'_> {
         if depth > CS_MARK_DEPTH {
             return Err(self.cs_fail(cs_name, subr, b"subroutines nested too deeply"));
         }
-        let mut idx = 0;
+        let idx;
         match cs_name {
             None => {
                 self.check_subr(subr as i64)?;
@@ -1449,23 +1616,16 @@ impl T1<'_> {
                 if self.cs_notdef.is_some() && name == NOTDEF {
                     idx = self.cs_notdef.expect("just tested");
                 } else {
-                    let n = self.cs_tab.len();
-                    let mut found = false;
-                    while idx < n {
-                        let e = self.cs_tab[idx];
-                        if self.name_of(&e) == name {
-                            found = true;
-                            break;
+                    idx = match self.cs_lookup(name) {
+                        Some(i) => i,
+                        None => {
+                            let mut m = b"glyph `".to_vec();
+                            m.extend_from_slice(name);
+                            m.extend_from_slice(b"' undefined");
+                            self.warn(m);
+                            return Ok(());
                         }
-                        idx += 1;
-                    }
-                    if !found {
-                        let mut m = b"glyph `".to_vec();
-                        m.extend_from_slice(name);
-                        m.extend_from_slice(b"' undefined");
-                        self.warn(m);
-                        return Ok(());
-                    }
+                    };
                     if self.cs_tab[idx].name_off == NAME_NOTDEF {
                         self.cs_notdef = Some(idx);
                     }
@@ -1671,28 +1831,27 @@ impl T1<'_> {
             self.t1_puts(b"/Encoding StandardEncoding def\n");
         } else {
             self.t1_puts(b"/Encoding 256 array\n0 1 255 {1 index exch /.notdef put} for\n");
-            // create_t1_glyph_tree: per name, the first code that has it, sorted by name
-            let mut order: Vec<u16> = Vec::with_capacity(256);
+            // create_t1_glyph_tree keeps for each name the first code that has it, and the walk of gl_tree writes
+            // `dup <code> /<name> put` for each glyph of gl_tree that the tree has, in gl_tree's order.  The same
+            // bytes come from looking each code's name up in gl_tree, which is small, and keeping the first code
+            // found for each glyph, without sorting 256 names.
+            let mut first: Vec<u16> = vec![u16::MAX; self.gl.len()];
             for i in 0..256 {
-                if !glyph_names.is_notdef(i) {
-                    order.push(i as u16);
+                if !glyph_names.is_notdef(i)
+                    && let Some(g) = self.gl.position(glyph_names.name(i))
+                    && first[g] == u16::MAX
+                {
+                    first[g] = i as u16;
                 }
             }
-            order.sort_by(|&a, &b| {
-                glyph_names.name(a as usize).cmp(glyph_names.name(b as usize)).then(a.cmp(&b))
-            });
             let mut j = 0;
             let mut l: Vec<u8> = Vec::with_capacity(64);
-            let mut walk = 0;
-            for g in 0..self.gl.len() {
-                let glyph = self.gl.get(g);
-                while walk < order.len() && glyph_names.name(order[walk] as usize) < glyph {
-                    walk += 1;
-                }
-                if walk < order.len() && glyph_names.name(order[walk] as usize) == glyph {
+            for (g, &code) in first.iter().enumerate() {
+                if code != u16::MAX {
+                    let glyph = self.gl.get(g);
                     l.clear();
                     l.extend_from_slice(b"dup ");
-                    push_i64(&mut l, order[walk] as i64);
+                    push_i64(&mut l, code as i64);
                     l.extend_from_slice(b" /");
                     l.extend_from_slice(glyph);
                     l.extend_from_slice(b" put\n");
@@ -1725,6 +1884,7 @@ impl T1<'_> {
 
     fn cs_init(&mut self) {
         self.cs_tab.clear();
+        self.cs_index.clear();
         self.cs_dict_start.clear();
         self.cs_dict_end.clear();
         self.cs_count = 0;
@@ -2008,6 +2168,7 @@ impl T1<'_> {
         let (f, _) = self.t1_scan_num(self.cs_size_pos)?;
         self.cs_size = ftoi(f);
         self.cs_tab.clear();
+        self.cs_index.clear();
         self.cs_notdef = None;
         self.cs_dict_start = cstr(&self.line, 0).to_vec();
         self.t1_getline()?;
@@ -2087,6 +2248,28 @@ mod tests {
     }
 
     #[test]
+    fn decrypt_run_is_the_loop() {
+        let mut x: u64 = 0x9E3779B97F4A7C15;
+        for len in 0..80usize {
+            for start in [0u16, 1, 4330, 55665, 0x8000, 0xffff] {
+                let src: Vec<u8> = (0..len)
+                    .map(|_| {
+                        x ^= x << 13;
+                        x ^= x >> 7;
+                        x ^= x << 17;
+                        x as u8
+                    })
+                    .collect();
+                let mut r = start;
+                let want: Vec<u8> = src.iter().map(|&c| cdecrypt(c, &mut r)).collect();
+                let mut got = vec![0u8; len];
+                assert_eq!(decrypt_run(&src, &mut got, start), r);
+                assert_eq!(got, want);
+            }
+        }
+    }
+
+    #[test]
     fn empty_input_fails_like_the_c() {
         let mut dims = crate::new_font_dims();
         let mut gl = GlyphSet::new();
@@ -2101,6 +2284,7 @@ mod tests {
             fontname: b"x",
             tx_codes: None,
             used_tags: &[],
+            decrypt: decrypt_run,
         };
         let e = write_t1(&inp, &mut dims, &mut gl, &mut carry, &mut out).err().expect("fails");
         assert_eq!(e.message, b"unexpected end of file");

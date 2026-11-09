@@ -100,7 +100,7 @@ MIXED = foo%bar # comment\nMIXED2 = foo %bar#baz\nCRLF = yes\r\nDOTTED.a.b = 1\n
     let braces = k.brace_expand(b"$SELF");
     assert!(braces.starts_with(b"$SELF/x/x"), "{}", String::from_utf8_lossy(&braces));
     assert!(braces.len() < 1000, "the recursion is bounded, at {} bytes", braces.len());
-    assert!(k.take_warnings().iter().any(|w| w.ends_with(b"references itself (eventually)")));
+    assert!(k.take_warnings().iter().any(|w| w.starts_with(b"warning: kpathsea: variable `") && w.ends_with(b"' references itself (eventually).\n")));
 }
 
 /// A user's cnf directory before the installation's, as `TEXMFCNF=DIR:` puts it: the run reads the user's, and what the installation's alone says can still be asked, for a
@@ -158,7 +158,14 @@ fn expansion_as_variable_c_and_expand_c() {
     assert_eq!(k.var_expand(b"a${}b"), b"ab");
     assert_eq!(k.var_expand(b"$$"), b"$$");
     assert_eq!(k.var_expand(b"a${oops"), b"a");
+    let _ = k.take_warnings();
     assert_eq!(k.var_expand(b"a$"), b"a$");
+    assert_eq!(k.var_expand(b"$:"), b"$:");
+    // As C's `WARNING` prints them, with `%c` of the zero that ends the string.
+    assert_eq!(
+        k.take_warnings(),
+        [&b"warning: kpathsea: a$: Unrecognized variable construct `$\0'.\n"[..], b"warning: kpathsea: $:: Unrecognized variable construct `$:'.\n"]
+    );
     // Tilde: a home directory's trailing slash is not doubled, and !! stays in front.
     assert_eq!(k.expand(b"~/x"), b"/home/u/x");
     assert_eq!(k.expand(b"~"), b"/home/u/");
@@ -601,6 +608,10 @@ fn yesno_and_bound_variables() {
     assert_eq!(k.setup_bound_var(b"ZERO", 7), 7, "0 is wrong where the default is positive");
     assert_eq!(k.setup_bound_var(b"ZERO", 0), 0, "and fine where it is not");
     assert_eq!(k.setup_bound_var(b"JUNK", 7), 7);
+    // What C prints with `fprintf`, each message its own line, not a `WARNING`.
+    let w = k.take_warnings();
+    assert_eq!(w.len(), 3, "{w:?}");
+    assert_eq!(w[0], b"test: Bad value (-3) in environment or texmf.cnf for NEG, keeping 7.\n");
 }
 
 #[test]
@@ -609,7 +620,7 @@ fn no_cnf_means_no_path_unless_a_tree_says_otherwise() {
     put(&d, "here.tex", b"");
     let mut k = kpse(&d, &[]);
     assert_eq!(k.format_path(KPSE_TEX_FORMAT).unwrap(), b"/nonesuch", "as kpsewhich with TEXMFCNF pointing at nothing");
-    assert!(k.take_warnings().iter().any(|w| w.starts_with(b"kpathsea: configuration file texmf.cnf not found")));
+    assert!(k.take_warnings().iter().any(|w| w.starts_with(b"warning: kpathsea: configuration file texmf.cnf not found") && w.ends_with(b".\n")));
     assert_eq!(k.find_file(b"here", KPSE_TEX_FORMAT, true), None);
 
     // A machine with no tree at all still searches the current directory.
@@ -668,6 +679,8 @@ fn a_bad_cnf_warns_and_carries_on() {
     for needle in ["No cnf variable name", "Unlikely character ; in program name", "Unlikely character $ in program name", "No cnf value", "Last line of file ends with"] {
         assert!(all.iter().any(|m| m.contains(needle)), "{needle} in {all:?}");
     }
+    // Each as C's `WARNING` prints it, a line of its own.
+    assert!(all.iter().all(|m| m.starts_with("warning: ") && m.ends_with(".\n") && m.matches('\n').count() == 1), "{all:?}");
 }
 
 #[test]
@@ -681,5 +694,5 @@ fn ls_r_with_nothing_in_it_does_not_count() {
     let mut k = kpse(&d.join("cnf"), &[]);
     // No usable database: !! elements give nothing, and the plain element goes to the disk.
     assert_eq!(s(&k.find_file(b"f.tex", KPSE_TEX_FORMAT, false)), Some(format!("{t}/sub/f.tex")));
-    assert!(k.take_warnings().iter().any(|w| w.ends_with(b"No usable entries in ls-R")));
+    assert!(k.take_warnings().iter().any(|w| w.starts_with(b"warning: kpathsea: ") && w.ends_with(b": No usable entries in ls-R.\n")));
 }

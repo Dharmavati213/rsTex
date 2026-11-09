@@ -174,9 +174,11 @@ fn a_format_comes_back_and_the_run_stays() {
 
     let b = Tex::alloc();
     live_state(b);
+    b.v_print.xord_identity = true;
     assert!(load(b, &f), "{}", terminal(b));
     // The record.
     assert_eq!((b.xord.at(0), b.xprn.at(1), b.xprn.at(2)), (255, 1, 0));
+    assert!(!b.v_print.xord_identity, "input_ln applies the format's xord, which moves every byte");
     assert_eq!((b.hash_high, b.eTeX_mode, b.max_reg_num, b.max_reg_help_line), (3, 1, 32767, 1));
     assert_eq!(b.main_memory, 123456, "section 1520: mem_top is the format's");
     assert_eq!((b.lo_mem_max, b.rover, b.hi_mem_min, b.avail), (LO_MEM_STAT_MAX + 1500, LO_MEM_STAT_MAX + 1, HI_MEM_STAT_MIN - 2, NULL));
@@ -359,6 +361,17 @@ fn interaction_and_tables_follow_the_command_line() {
     b.xord.put(0, 7);
     assert!(load(b, &f));
     assert_eq!(b.xord.at(0), 7);
+    Tex::dealloc(b);
+    // Nor is the format's xord what input_ln goes by then: the run's identity stays.
+    let b = Tex::alloc();
+    live_state(b);
+    b.host.translate_filename = Some(b"x".to_vec());
+    for i in 0..256 {
+        b.xord.put(i, i);
+    }
+    b.xord_changed();
+    assert!(load(b, &f));
+    assert_eq!((b.xord.at(0), b.v_print.xord_identity), (0, true));
     Tex::dealloc(b);
     std::fs::remove_dir_all(&dir).unwrap();
 }

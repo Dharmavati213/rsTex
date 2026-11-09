@@ -235,7 +235,7 @@ impl Tex {
     /// §521 and §522 with nothing between, on what `free_node` overwrites all of.
     #[inline(always)]
     fn pf_condition(&mut self) {
-        let p = self.get_node(IF_NODE_SIZE);
+        let p = self.get_node_leaf(IF_NODE_SIZE);
         self.free_node(p, IF_NODE_SIZE);
     }
 

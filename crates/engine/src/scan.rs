@@ -845,7 +845,8 @@ impl Tex {
 
     /// `back_input` of the digit in `cur_tok`, just read, and `scan_int` or `scan_int_keeping_next`.  The level would
     /// be gone with the next digit or terminator, so this is for when that is the only thing it could do: when
-    /// `scan_int_digit_may_skip_level` says that it would add nothing to the stack's high water mark.
+    /// `scan_int_digit_may_skip_level` says that it would add nothing to the stack's high water mark, nor to main
+    /// memory's near its end.
     #[inline]
     pub fn scan_int_from_cur_tok<const KEEP: bool>(&mut self) {
         self.radix = 10;
@@ -855,7 +856,16 @@ impl Tex {
 
     #[inline]
     pub fn scan_int_digit_may_skip_level(&self) -> bool {
-        (self.cur_tok - ZERO_TOKEN) as u32 <= 9 && self.input_ptr <= self.max_in_stack
+        (self.cur_tok - ZERO_TOKEN) as u32 <= 9 && self.input_ptr <= self.max_in_stack && self.scan_may_leave_out_levels()
+    }
+
+    /// Whether the shortcuts of this module may leave out the levels that `back_input` would make and that are gone
+    /// before anything can show them (PORTING, "Levels that cannot show").  Each holds a cell of the oracle's main memory
+    /// until it is read, and while every rise is seen (webmem.rs, "Near the end") that cell can be the one that fills
+    /// it, at another token than here.  So then they are made, as WEB has them.
+    #[inline(always)]
+    fn scan_may_leave_out_levels(&self) -> bool {
+        self.v_webmem.fine == 0
     }
 
     #[inline(always)]
@@ -957,20 +967,31 @@ impl Tex {
             if self.radix == 10 && self.state() == TOKEN_LIST {
                 // More digits in the list, up to where this test could matter: all that get_x_token would
                 // do is read them, and it is not called for cur_tok to see.
-                let mut l = self.loc();
                 let mut v = self.cur_val;
                 loop {
-                    let d = self.toks[l] - ZERO_TOKEN;
-                    if d as u32 > 9 || v >= m {
-                        break;
+                    let mut l = self.loc();
+                    loop {
+                        let d = self.toks[l] - ZERO_TOKEN;
+                        if d as u32 > 9 || v >= m {
+                            break;
+                        }
+                        v = v * 10 + d;
+                        l += 1;
                     }
-                    v = v * 10 + d;
-                    l += 1;
-                }
-                self.cur_val = v;
-                self.set_loc(l);
-                if KEEP && self.scan_int_next_may_stay(l) {
-                    return;
+                    self.cur_val = v;
+                    self.set_loc(l);
+                    if KEEP && self.scan_may_leave_out_levels() {
+                        if self.scan_int_next_may_stay(l) {
+                            return;
+                        }
+                        // The digits end with their list, as an argument's do, or a macro's that is a number.  The first
+                        // thing get_x_token would do is end it, as get_next does, and the level below may hold more
+                        // digits, or the token that may stay.
+                        if self.toks[l] == 0 && self.end_finished_list() && self.state() == TOKEN_LIST {
+                            continue;
+                        }
+                    }
+                    break;
                 }
             }
             self.get_x_token();
@@ -995,7 +1016,8 @@ impl Tex {
     /// show, as `<recently read>`, if an error comes before the next read.  So not `\relax`, which §1784 swallows, and
     /// after which `Arithmetic overflow` or the error of the caller's caller can come.  Any other token
     /// goes through `back_input` again or leads to the next read.  With `input_ptr` beyond `max_in_stack` the
-    /// level could overflow the stack, and it is left to do that.  A space is simply dropped, as §470 does.
+    /// level could overflow the stack, and it is left to do that.  A space is simply dropped, as §470 does.  The
+    /// token at `l` can be in the level below the digits', once their list has ended: `scan_int_accumulate`.
     #[inline(always)]
     fn scan_int_next_may_stay(&mut self, l: i32) -> bool {
         let t = self.toks[l];
@@ -1032,10 +1054,11 @@ impl Tex {
     /// `cur_tok` the first token of it: its value goes in `cur_val`, the digits after the point give `f`, and
     /// the list goes on after the unit.  The literal way there reads each of these tokens through `get_x_token` and
     /// leaves six levels behind it, none of them still there when §469 reads the next token, which
-    /// it does as it would have.  Only the high water mark of the stack could tell, and it is left to do that.
+    /// it does as it would have.  Only the high water mark of the stack could tell, and it is left to do that, and
+    /// a main memory near its end, which `scan_may_leave_out_levels` leaves to it.
     #[inline]
     fn scan_dimen_in_pt(&mut self) -> Option<i32> {
-        if self.state() != TOKEN_LIST || self.input_ptr >= self.max_in_stack {
+        if self.state() != TOKEN_LIST || self.input_ptr >= self.max_in_stack || !self.scan_may_leave_out_levels() {
             return None;
         }
         let mut t = self.cur_tok;

@@ -1,0 +1,11 @@
+% mode: ini
+% setup: image
+% An RGBA PNG whose row 33, the second group's first in rstex, has the filter byte 6: "bad adaptive filter value",
+% "libpng: internal error" and the end.
+\catcode`\{=1 \catcode`\}=2
+\pdfoutput=1 \pdfcompresslevel=0 \pdfobjcompresslevel=0 \pdfminorversion=5
+\shipout\hbox{\pdfliteral{0 0 m 10 10 l S}}
+\pdfximage width 1cm {rows_bad_filter.png}
+\message{read}
+\shipout\hbox{\pdfrefximage\pdflastximage}
+\end

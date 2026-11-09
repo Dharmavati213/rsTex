@@ -397,6 +397,14 @@ impl Kpse {
         if format == format::KPSE_PK_FORMAT || format == format::KPSE_ANY_GLYPH_FORMAT {
             self.init_maketex(format);
         }
+        // The tables first, for a format whose path the index keeps: `init_path` would read them at its first `cnf_get`, with nothing seen or noted before it, and the
+        // path then comes from the index instead of some 100000 instructions of working it out.  Where the index had to be made, that made the path too.
+        if !self.cnf_read && !self.doing_cnf_init && self.override_paths[format as usize].is_none() && crate::index::is_indexed(format) {
+            self.ensure_cnf();
+            if let Some(st) = &self.formats[format as usize] {
+                return Some(st.clone());
+            }
+        }
         let indexed = if self.override_paths[format as usize].is_none() { self.index.as_ref().and_then(|ix| ix.format_path(&self.program_name, format)) } else { None };
         let mut path = match indexed {
             Some(p) => p.to_vec(),

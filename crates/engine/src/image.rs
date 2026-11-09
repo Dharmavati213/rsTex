@@ -23,7 +23,8 @@
 //! the like may differ in this run.
 //!
 //! A load puts each section directly in its place in the image.  A long one lies in the file at the same offset as in the image, modulo
-//! [`FMT_ALIGN`], so that it can be mapped there instead of being read: see `image_load_bytes`, which a checkpoint's restore uses too.
+//! [`FMT_ALIGN`], so that it can be mapped there instead of being read: see `image_load_bytes`, which a checkpoint's restore uses too.  Short
+//! ones that follow one another in a format's file are read together, by `image_load_run`.
 //!
 //! **What of the `v_<module>` structs a format holds**, against §1485-1507.  Everything in them is what the C keeps in
 //! statics, so none of them is in the file, and the arena's bytes are unreachable without a `PodVec` to them, apart
@@ -614,9 +615,12 @@ impl Tex {
         false
     }
 
-    /// The one way bytes get into a new image, from a format or a checkpoint: `n` bytes, from `offset` in the file to `at` in the image.  If `mapped`, which [`fmt_mapped`]
+    /// How bytes get into a new image, from a format or a checkpoint: `n` bytes, from `offset` in the file to `at` in the image.  If `mapped`, which [`fmt_mapped`]
     /// says of the section they are in, the whole pages among them are mapped, and the bytes on either side are read: their pages hold another array too.  A file not
     /// laid out for this ([`image_padding`]) is read.  `Some` means they are all there, and past the end of the file a mapping would give SIGBUS when first touched, so that is `None`.
+    ///
+    /// The one other way is [`Tex::image_load_run`], for a format's short sections that are not mapped, which does for them what the end of this does: whatever this
+    /// comes to do for a section that is neither mapped nor [`FMT_ALIGN_MIN`] long goes there too.
     pub(crate) fn image_load_bytes(&mut self, f: &FmtIn, mapped: bool, at: usize, n: usize, offset: u64) -> Option<()> {
         if offset.checked_add(n as u64)? > f.size {
             return None;
@@ -643,6 +647,30 @@ impl Tex {
             return None;
         }
         if f.read_at(offset, dst) { Some(()) } else { None }
+    }
+
+    /// What [`Tex::image_load_bytes`] does for each of `run`, short sections that are not mapped and lie one after the other in the file, in one read; leaves `run` empty.
+    /// None of them is long enough for its huge pages (`FMT_HUGE_MIN`), which is all that `image_load_bytes` does for a section it reads besides these steps.
+    fn image_load_run(&mut self, f: &FmtIn, run: &mut SectionRun) -> Option<()> {
+        const _: () = assert!(FMT_ALIGN_MIN <= FMT_HUGE_MIN, "a section short enough for a run never wants huge pages");
+        let run = core::mem::replace(run, SectionRun::new());
+        let (parts, offset, len) = (&run.parts[..run.n], run.offset, run.len);
+        if parts.is_empty() {
+            return Some(());
+        }
+        if offset.checked_add(len)? > f.size {
+            return None;
+        }
+        for &(at, n) in parts {
+            debug_assert!(n < FMT_ALIGN_MIN, "only short sections go into a run");
+            let dst = image_bytes_mut(self, at, n);
+            if !crate::platform::commit_range(dst.as_mut_ptr(), n) {
+                return None;
+            }
+        }
+        let mut bufs: [&mut [u8]; SectionRun::MAX] = core::array::from_fn(|_| Default::default());
+        image_ranges_mut(self, parts, &mut bufs);
+        if f.read_vectored_at(offset, &mut bufs[..parts.len()]) { Some(()) } else { None }
     }
 
     /// Everything §1481 does up to `bad_fmt`: `None` goes there.
@@ -681,6 +709,7 @@ impl Tex {
         // §1875 Undump xord, xchr, and xprn
         if self.host.translate_filename.is_none() {
             self.xord = rec.xord;
+            self.xord_changed();
             self.xchr = rec.xchr;
             self.xprn = rec.xprn;
             if self.eight_bit_p != 0 {
@@ -872,6 +901,9 @@ impl Tex {
         self.v_web2c.str_index.len = rec.str_index_cap;
         // The arrays of §1487-§1505, each from the range the file gives.  §1488's and §1501's
         // undump_checked_things look at each element; the checksum has said this is this build's file.
+        // Short sections lie one after the other in the file, with nothing between them (`image_padding`), and a run of them is read at once: of the 51 reads of
+        // plain's format 17 are left, and 4 `preadv`, which take some 1% off the CPU of a plain hello.
+        let mut run = SectionRun::new();
         for s in POD_SECTIONS.iter().filter(|s| s.in_format) {
             let (a, b) = (r.u64()? as usize, r.u64()? as usize);
             let offset = r.u64()?;
@@ -880,8 +912,17 @@ impl Tex {
             }
             // `commute`'s run touches few pages of anything, in a format that stops after `\\begin{document}`.
             let mapped = fmt_mapped(s.name) || self.host.hv.session.config.as_ref().is_some_and(|c| c.library_only);
-            self.image_load_bytes(&r.file, mapped, s.offset + a * s.elem_size, (b - a) * s.elem_size, offset)?;
+            let (at, n) = (s.offset + a * s.elem_size, (b - a) * s.elem_size);
+            if mapped || n >= FMT_ALIGN_MIN {
+                // What the run holds first, so that the reads go in the order of the file, as they went one by one.
+                self.image_load_run(&r.file, &mut run)?;
+                self.image_load_bytes(&r.file, mapped, at, n, offset)?;
+            } else if !run.add(offset, at, n) {
+                self.image_load_run(&r.file, &mut run)?;
+                run.add(offset, at, n);
+            }
         }
+        self.image_load_run(&r.file, &mut run)?;
         // §1490: the checks on the free list that WEB makes as it reads the nodes.  It reports a messed
         // up file, in which `p` could become garbage.
         let mut q = self.rover;
@@ -1098,6 +1139,41 @@ impl Tex {
     }
 }
 
+/// Short sections of a format that follow one another in the file and in the image, for one read: from `offset` in the file, `len` bytes, which go to the
+/// `(where in the image, how many)` of each of `parts[..n]` in turn.
+struct SectionRun {
+    offset: u64,
+    len: u64,
+    parts: [(usize, usize); SectionRun::MAX],
+    n: usize,
+}
+
+impl SectionRun {
+    /// The most sections a run takes.
+    const MAX: usize = 64;
+
+    fn new() -> SectionRun {
+        SectionRun { offset: 0, len: 0, parts: [(0, 0); SectionRun::MAX], n: 0 }
+    }
+
+    /// Takes `n` bytes from `offset` in the file to `at` in the image, if the run is empty or they go on from where it ends in the file and lie after its last part in
+    /// the image; false if not.
+    fn add(&mut self, offset: u64, at: usize, n: usize) -> bool {
+        if self.n > 0 {
+            let (last_at, last_n) = self.parts[self.n - 1];
+            if self.n == SectionRun::MAX || self.offset.checked_add(self.len) != Some(offset) || at < last_at + last_n {
+                return false;
+            }
+        } else {
+            self.offset = offset;
+        }
+        self.parts[self.n] = (at, n);
+        self.n += 1;
+        self.len += n as u64;
+        true
+    }
+}
+
 /// The zero bytes between what a file holds, up to `at`, and `n` bytes that go at `image_at` in the image.  Both file formats lay out what is long enough this way, so that it can be mapped.
 pub(crate) fn image_padding(at: u64, image_at: usize, n: usize) -> u64 {
     if n < FMT_ALIGN_MIN {
@@ -1136,5 +1212,28 @@ mod tests {
             }
         }
         assert_eq!(image_padding(5, 7, FMT_ALIGN_MIN - 1), 0, "too short to be worth it");
+    }
+
+    /// A run takes sections only while they follow on in the file and go forward in the image, and no more than it has room for; what it refuses starts the next one.
+    #[test]
+    fn a_run_takes_what_follows_on() {
+        let mut run = SectionRun::new();
+        assert!(run.add(1000, 64, 8), "an empty run takes anything");
+        assert!(run.add(1008, 80, 0), "an empty section, after a gap in the image");
+        assert!(run.add(1008, 80, 16));
+        assert_eq!((run.offset, run.len, run.n), (1000, 24, 3));
+        assert_eq!(run.parts[..run.n], [(64, 8), (80, 0), (80, 16)]);
+        assert!(!run.add(1025, 200, 8), "a gap in the file");
+        assert!(!run.add(1023, 200, 8), "an overlap in the file");
+        assert!(!run.add(1024, 90, 8), "back in the image");
+        assert_eq!((run.offset, run.len, run.n), (1000, 24, 3), "refused, it is as it was");
+        let mut run = SectionRun::new();
+        for k in 0..SectionRun::MAX {
+            assert!(run.add(k as u64 * 4, k * 4, 4));
+        }
+        assert!(!run.add(SectionRun::MAX as u64 * 4, SectionRun::MAX * 4, 4), "a full run");
+        let mut run = SectionRun::new();
+        assert!(run.add(u64::MAX - 2, 0, 4));
+        assert!(!run.add(1, 8, 4), "an end in the file past what a u64 holds does not wrap round");
     }
 }

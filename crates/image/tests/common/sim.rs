@@ -35,6 +35,8 @@ pub struct Params {
     pub obj_level: i32,
     /// All the images are read, then a page is shipped out with them on it, which writes them.
     pub deferred: bool,
+    /// One of `super::kernels`.
+    pub kernels: png::Kernels,
 }
 
 impl Default for Params {
@@ -57,6 +59,7 @@ impl Default for Params {
             page_group: 0,
             obj_level: 0,
             deferred: false,
+            kernels: png::Kernels::PLAIN,
         }
     }
 }
@@ -485,6 +488,7 @@ impl Sim {
                     gamma: p.gamma,
                     image_gamma: p.image_gamma,
                     colorspace_ref: colorspace,
+                    kernels: p.kernels,
                 };
                 let out = png::write_png(&info, &data, &params, &mut self.slots).map_err(|e| e.0)?;
                 self.replay(out.ops, &data);

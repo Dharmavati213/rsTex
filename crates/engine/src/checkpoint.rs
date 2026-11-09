@@ -458,22 +458,14 @@ pub fn xxh64(data: &[u8], seed: u64) -> u64 {
 pub fn image_sum(data: &[u8], seed: u64) -> u64 {
     let mut a = [seed, !seed, seed.rotate_left(21), seed.rotate_left(42)];
     let mut b = [0u64; 4];
-    let mut stripes = data.chunks_exact(32);
-    for s in &mut stripes {
-        for k in 0..4 {
-            let w = u64::from_le_bytes([s[8 * k], s[8 * k + 1], s[8 * k + 2], s[8 * k + 3], s[8 * k + 4], s[8 * k + 5], s[8 * k + 6], s[8 * k + 7]]);
-            a[k] = a[k].wrapping_add(w);
-        }
-        for k in 0..4 {
-            b[k] = b[k].wrapping_add(a[k]);
-        }
-    }
+    let whole = data.len() & !31;
+    platform::fletcher_stripes(&data[..whole], &mut a, &mut b);
     let mut out = [0u8; 72];
     for k in 0..4 {
         out[8 * k..8 * k + 8].copy_from_slice(&a[k].to_le_bytes());
         out[32 + 8 * k..40 + 8 * k].copy_from_slice(&b[k].to_le_bytes());
     }
-    out[64..72].copy_from_slice(&xxh64(stripes.remainder(), data.len() as u64).to_le_bytes());
+    out[64..72].copy_from_slice(&xxh64(&data[whole..], data.len() as u64).to_le_bytes());
     xxh64(&out, seed)
 }
 
@@ -1853,9 +1845,13 @@ impl Tex {
         let limit = core::mem::offset_of!(Tex, host) as u64;
         // `hash_tab` too, though a format's is read: most new names are made in the preamble, so what comes after it writes to few of the pages, and looks at the others.
         // Hello takes 15 faults for its 1 MiB, and the thesis a tenth of a percent more time, from 269 faults more.
-        let mapped_at = |a: u64| {
-            POD_SECTIONS.iter().any(|s| s.offset as u64 <= a && a < (s.offset + s.cap * s.elem_size) as u64 && (crate::image::fmt_mapped(s.name) || s.name == "hash_tab"))
-        };
+        // Found once: asked of each of some 130 spans, a walk of all the sections and their names was 1.3% of a run of hello from its last page record.
+        let mapped: Vec<(u64, u64)> = POD_SECTIONS
+            .iter()
+            .filter(|s| crate::image::fmt_mapped(s.name) || s.name == "hash_tab")
+            .map(|s| (s.offset as u64, (s.offset + s.cap * s.elem_size) as u64))
+            .collect();
+        let mapped_at = |a: u64| mapped.iter().any(|&(lo, hi)| lo <= a && a < hi);
         let mut h = 0;
         let mut at = start;
         for &(a, b) in &meta.spans {
@@ -2172,6 +2168,45 @@ mod tests {
         x[..8192].rotate_left(4096);
         assert_ne!(sum, image_sum(&x, 7));
         assert_ne!(sum, image_sum(&good[..good.len() - 1], 7));
+    }
+
+    /// The sum as it was written before `platform::fletcher_stripes`, a stripe at a time: what the files on the disk hold, whatever the CPU that reads them.  Every
+    /// length of a remainder, three alignments and three seeds.
+    #[test]
+    fn image_sum_is_what_it_was() {
+        fn reference(data: &[u8], seed: u64) -> u64 {
+            let mut a = [seed, !seed, seed.rotate_left(21), seed.rotate_left(42)];
+            let mut b = [0u64; 4];
+            let mut stripes = data.chunks_exact(32);
+            for s in &mut stripes {
+                for k in 0..4 {
+                    a[k] = a[k].wrapping_add(u64::from_le_bytes(s[8 * k..8 * k + 8].try_into().unwrap()));
+                }
+                for k in 0..4 {
+                    b[k] = b[k].wrapping_add(a[k]);
+                }
+            }
+            let mut out = [0u8; 72];
+            for k in 0..4 {
+                out[8 * k..8 * k + 8].copy_from_slice(&a[k].to_le_bytes());
+                out[32 + 8 * k..40 + 8 * k].copy_from_slice(&b[k].to_le_bytes());
+            }
+            out[64..72].copy_from_slice(&xxh64(stripes.remainder(), data.len() as u64).to_le_bytes());
+            xxh64(&out, seed)
+        }
+        let data: Vec<u8> = (0..70000u32).map(|k| (k.wrapping_mul(2654435761) >> 13) as u8).collect();
+        let lens = (0..=100).chain([4095, 4096, 4097, 8191, 65536, 69990]);
+        for len in lens {
+            for start in [0, 1, 7] {
+                let d = &data[start..start + len];
+                for seed in [0, 7, u64::MAX] {
+                    assert_eq!(image_sum(d, seed), reference(d, seed), "len {len} start {start} seed {seed}");
+                }
+            }
+        }
+        // And what it was in numbers, so that the two cannot change together.
+        assert_eq!(image_sum(&data, 0), 0xae2b_5ebe_7682_3c80);
+        assert_eq!(image_sum(&data[3..4096 + 3 + 17], 7), 0xd952_6423_ed25_cc10);
     }
 
     #[test]

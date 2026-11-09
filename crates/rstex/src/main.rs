@@ -7,6 +7,18 @@
 
 use rstex_engine::platform;
 
+/// What `crates/rstex/build.rs` has glibc's static start-up call instead of `_dl_get_origin`, a `readlink` of `/proc/self/exe` and the run's first look at
+/// `/proc/self`, some 12 us of a plain hello's 1.8 ms.  `(char *) -1` is what glibc's own gives when it cannot tell, and what it would tell is `$ORIGIN` for the
+/// search paths of `dlopen`.  The binary has a `dlopen`: iconv's and gettext's code reach it, to load a converter or a catalog for a locale other than C.  Nothing
+/// here leaves the C locale, as pdfTeX does not: no `setlocale`, and `~user` is read from `/etc/passwd`, not asked of NSS.  A dependency that brings in a `dlopen`
+/// that can be reached would find `$ORIGIN` no longer expanded in `LD_LIBRARY_PATH`, and the wrap would have to go.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+extern "C" fn __wrap__dl_get_origin() -> *const std::ffi::c_char {
+    usize::MAX as *const std::ffi::c_char
+}
+
 /// The C runtime's call.
 #[cfg(not(test))]
 #[allow(unsafe_code)]

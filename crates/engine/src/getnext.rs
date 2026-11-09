@@ -179,24 +179,9 @@ impl Tex {
         if self.state() == TOKEN_LIST {
             let t = self.toks[l];
             if t == 0 {
-                // §346
-                let ty = self.token_type();
-                if self.interrupt != 0 {
+                if !self.end_finished_list() {
                     return 0;
                 }
-                if ty == PARAMETER {
-                } else if ty == BACKED_UP || ty == INSERTED {
-                    self.flush_list(self.start());
-                } else if ty == MACRO {
-                    self.delete_token_ref(self.start());
-                    while self.param_ptr > self.param_start() {
-                        self.param_ptr -= 1;
-                        self.arg_release(self.param_stack[self.param_ptr]);
-                    }
-                } else {
-                    return 0;
-                }
-                self.pop_input();
             } else if (t >> 8) == OUT_PARAM && self.input_ptr <= self.max_in_stack {
                 // §381
                 self.set_loc(l + 1);
@@ -222,6 +207,31 @@ impl Tex {
             }
             0
         }
+    }
+
+    /// §346, §324 for the current level, a token list whose `loc` is at its end, as `get_next` ends it before it reads on.
+    /// The types it ends are those of nearly every list, and false says that it has left the level alone: for one of the
+    /// rarer types, or for an interrupt, which `end_token_list` would see to.  Those are for `get_next_literal`.
+    #[inline(always)]
+    pub fn end_finished_list(&mut self) -> bool {
+        let ty = self.token_type();
+        if self.interrupt != 0 {
+            return false;
+        }
+        if ty == PARAMETER {
+        } else if ty == BACKED_UP || ty == INSERTED {
+            self.flush_list(self.start());
+        } else if ty == MACRO {
+            self.delete_token_ref(self.start());
+            while self.param_ptr > self.param_start() {
+                self.param_ptr -= 1;
+                self.arg_release(self.param_stack[self.param_ptr]);
+            }
+        } else {
+            return false;
+        }
+        self.pop_input();
+        true
     }
 
     /// §363 when the leaf has done nothing.

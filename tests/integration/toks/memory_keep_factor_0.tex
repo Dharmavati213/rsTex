@@ -1,0 +1,11 @@
+% mode: ini-etex
+% env: main_memory=250000
+% As memory_keep_list_0, with a factor of \numexpr that is a constant, whose first digit scan_int_from_cur_tok takes without backing it up.  The
+% level of that digit holds the cell that fills the oracle's memory, in this and _1 and _2.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\batchmode
+\toks0{}
+\def\chk{\ifnum\numexpr12>0 \fi}
+\def\round{\special{x}\chk\round}
+\setbox0\vbox{\round}
+\end

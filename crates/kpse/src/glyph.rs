@@ -184,7 +184,7 @@ impl Kpse {
             }
             let s = crate::atoi(size) as u32;
             if last_resort_sizes.last().is_some_and(|&l| s < l) {
-                self.warn(&[b"warning: kpathsea: last resort size ", size, b" not in ascending order; ignored.\n"].concat());
+                self.warn(&[b"kpathsea: last resort size ", size, b" not in ascending order; ignored"].concat());
             } else {
                 last_resort_sizes.push(s);
             }

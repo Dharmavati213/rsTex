@@ -29,6 +29,10 @@ impl Tex {
     /// r, s, t, u, v are positions in `toks`: a walk `link(x)` is `x + 1`, and `s=null` is `s == NULL`,
     /// which no position equals.  WEB's p, q and rbrace_ptr are gone: the argument in flight is the
     /// top of the builder, from `mark`.
+    ///
+    /// The loop over the parameters does only what a capture loop that reads the whole argument needs, and leaves every other case to
+    /// `macrocall_param`, out of line: with §418's literal loop inlined here, its positions and copies of tokens were set up and saved
+    /// at each parameter, about 25 instructions, before a capture that needs none of them.
     pub fn macro_call(&mut self) {
         #[cfg(feature = "commute-probe")]
         self.probe_call();
@@ -77,7 +81,6 @@ impl Tex {
             } else {
                 // §417
                 self.scanner_status = MATCHING;
-                let mut unbalance = 0;
                 self.long_state = self.eq_type(self.cur_cs);
                 if self.long_state >= OUTER_CALL {
                     // Where an armed macro comes too: crate::checkpoint.
@@ -90,182 +93,41 @@ impl Tex {
                     // link(temp_head):=null
                     let mark = self.tb_mark();
                     self.tb_match_mark = mark;
-                    let s;
-                    let mut m = 0;
-                    let mut match_chr = 0;
-                    if self.toks[r] > MATCH_TOKEN + 255 || self.toks[r] < MATCH_TOKEN {
-                        s = NULL;
-                    } else {
-                        match_chr = self.toks[r] - MATCH_TOKEN;
-                        s = r + 1;
-                        r = s;
-                    }
-                    // Whether capture.rs has put the whole argument in pstack[n].
-                    let mut captured = false;
-                    // §418.  `continue:` is the top of this loop, `found:` is right after it.
-                    'found: loop {
-                        #[cfg(not(feature = "slow_capture"))]
-                        if r == s && self.state() == TOKEN_LIST {
-                            let c = if self.toks[r] <= END_MATCH_TOKEN && self.toks[r] >= MATCH_TOKEN {
-                                self.capture_undelimited(n)
-                            } else {
-                                self.v_macrocall.delimiter = r;
-                                self.capture_delimited(&mut r, n, mark, &mut m)
-                            };
+                    // What the capture below gave, for `macrocall_param`: none tried is as one that read nothing.
+                    let mut tried = (0, 0);
+                    // §418's first pass, `r=s`, where it is a capture.  Most arguments are read whole here.
+                    #[cfg(not(feature = "slow_capture"))]
+                    {
+                        let t = self.toks[r];
+                        if ((t - MATCH_TOKEN) as u32) <= 255 && self.state() == TOKEN_LIST {
+                            // §417's s, and r:=s, which a delimited capture moves past the delimiter when it is done.
+                            let mut q = r + 1;
+                            let mut m = 0;
+                            let c = self.macrocall_capture::<true>(&mut q, n, mark, &mut m);
                             if c == crate::capture::CAPTURE_DONE {
-                                captured = true;
-                                break 'found;
-                            }
-                            if c > 0 {
-                                unbalance = c;
-                                if !self.macrocall_group(mark, n, &mut unbalance) {
-                                    break 'exit;
+                                // found: and §426 for an argument a loop has put in pstack[n]
+                                r = q;
+                                n += 1;
+                                if self.tracing_macros() > 0 {
+                                    self.macrocall_show_arg(t - MATCH_TOKEN, n);
                                 }
-                                m += 1;
-                                if self.toks[r] > END_MATCH_TOKEN {
-                                    continue 'found;
-                                }
-                                if self.toks[r] < MATCH_TOKEN {
-                                    continue 'found;
-                                }
-                                break 'found;
-                            }
-                        }
-                        self.get_token();
-                        if self.cur_tok == self.toks[r] {
-                            // §420
-                            r += 1;
-                            if self.toks[r] >= MATCH_TOKEN && self.toks[r] <= END_MATCH_TOKEN {
-                                if self.cur_tok < LEFT_BRACE_LIMIT {
-                                    self.align_state -= 1;
-                                }
-                                break 'found;
-                            }
-                            continue 'found;
-                        }
-                        // §423
-                        if s != r {
-                            if s == NULL {
-                                // §424
-                                self.print_err_s(b"Use of ");
-                                self.sprint_cs(self.warning_index);
-                                self.print_s(b" doesn't match its definition");
-                                self.help(&[
-                                    b"If you say, e.g., `\\def\\a1{...}', then you must always",
-                                    b"put `1' after `\\a', since control sequence names are",
-                                    b"made up of letters only. The macro here has not been",
-                                    b"followed by the required stuff, so I'm ignoring it.",
-                                ]);
-                                self.error();
-                                break 'exit;
-                            }
-                            let mut t = s;
-                            loop {
-                                self.tb_push(self.toks[t]);
-                                m += 1;
-                                let mut u = t + 1;
-                                let mut v = s;
-                                loop {
-                                    if u == r {
-                                        if self.cur_tok != self.toks[v] {
-                                            break; // goto done
-                                        }
-                                        r = v + 1;
-                                        continue 'found;
-                                    }
-                                    if self.toks[u] != self.toks[v] {
-                                        break; // goto done
-                                    }
-                                    u += 1;
-                                    v += 1;
-                                }
-                                // done:
-                                t += 1;
-                                if t == r {
+                                if self.toks[r] == END_MATCH_TOKEN {
+                                    self.capture_leave();
                                     break;
                                 }
+                                continue;
                             }
-                            r = s;
-                        }
-                        if self.cur_tok == self.par_token && self.long_state != LONG_CALL {
-                            self.macrocall_runaway_abort(mark, n, unbalance);
-                            break 'exit;
-                        }
-                        if self.cur_tok < RIGHT_BRACE_LIMIT {
-                            if self.cur_tok < LEFT_BRACE_LIMIT {
-                                // §425
-                                unbalance = 1;
-                                self.tb_push(self.cur_tok);
-                                if !self.macrocall_group(mark, n, &mut unbalance) {
-                                    break 'exit;
-                                }
-                            } else {
-                                // §421
-                                self.back_input();
-                                self.print_err_s(b"Argument of ");
-                                self.sprint_cs(self.warning_index);
-                                self.print_s(b" has an extra }");
-                                self.help(&[
-                                    b"I've run across a `}' that doesn't seem to match anything.",
-                                    b"For example, `\\def\\a#1{...}' and `\\a}' would produce",
-                                    b"this error. If you simply proceed now, the `\\par' that",
-                                    b"I've just inserted will cause me to report a runaway",
-                                    b"argument that might be the root of the problem. But if",
-                                    b"your `}' was spurious, just type `2' and it will go away.",
-                                ]);
-                                self.align_state += 1;
-                                self.long_state = CALL;
-                                self.cur_tok = self.par_token;
-                                self.ins_error();
-                                continue 'found;
-                            }
-                        } else {
-                            // §419
-                            if self.cur_tok == SPACE_TOKEN
-                                && self.toks[r] <= END_MATCH_TOKEN
-                                && self.toks[r] >= MATCH_TOKEN
-                            {
-                                continue 'found;
-                            }
-                            self.tb_push(self.cur_tok);
-                        }
-                        m += 1;
-                        if self.toks[r] > END_MATCH_TOKEN {
-                            continue 'found;
-                        }
-                        if self.toks[r] < MATCH_TOKEN {
-                            continue 'found;
-                        }
-                        break 'found;
-                    }
-                    // found:
-                    if s != NULL {
-                        // §426.  m=1 means the list is one token or one group, so a last token
-                        // below right_brace_limit is the group's closing brace.
-                        if !captured {
-                            self.pstack[n] = if m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT {
-                                self.tb_commit_strip(mark)
-                            } else {
-                                self.tb_commit(mark)
-                            };
-                        }
-                        n += 1;
-                        if self.tracing_macros() > 0 {
-                            if self.tracing_stack_levels() == 0 || self.input_ptr < self.tracing_stack_levels() {
-                                self.begin_diagnostic();
-                                self.print_nl(match_chr);
-                                self.print_int(n);
-                                self.print_s(b"<-");
-                                self.show_token_list(self.pstack[n - 1] + 1, NULL, 1000);
-                                self.end_diagnostic(false);
-                            }
+                            tried = (c, m);
                         }
                     }
+                    let x = self.macrocall_param(r, n, mark, tried);
+                    if x < 0 {
+                        break 'exit;
+                    }
+                    r = (x >> 32) as i32;
+                    n = x as i32;
                     // now toks[r] is a token whose command code is either match or end_match
                     if self.toks[r] == END_MATCH_TOKEN {
-                        if captured {
-                            self.capture_leave();
-                        }
                         break;
                     }
                 }
@@ -293,6 +155,219 @@ impl Tex {
         // exit:
         self.scanner_status = save_scanner_status;
         self.warning_index = save_warning_index;
+    }
+
+    /// §418-§426 for the parameter at `r`, where the loop of `macro_call` has not read all of its argument: the literal loop, with the capture
+    /// loops where they apply.  `tried` is what the capture of that loop gave, `(c, m)`, from which the first pass goes on, as nothing has been read since;
+    /// `(0, 0)` if it tried none, as this loop's own test would not have tried one either.  Out of line, so that its state stays out of `macro_call`'s
+    /// registers.  Gives `r` for the next parameter in the high half and `n` in the low one, or -1 where §422 or §424 has ended the call.  As a pair of
+    /// `i32`s the same took 0.6% more instructions on the format build, in `macro_call`'s code around the call.
+    #[inline(never)]
+    #[cfg_attr(feature = "slow_capture", allow(unused_variables))]
+    fn macrocall_param(&mut self, mut r: i32, mut n: i32, mark: i32, tried: (i32, i32)) -> i64 {
+        let mut unbalance = 0;
+        let s;
+        let mut m = 0;
+        let mut match_chr = 0;
+        if self.toks[r] > MATCH_TOKEN + 255 || self.toks[r] < MATCH_TOKEN {
+            s = NULL;
+        } else {
+            match_chr = self.toks[r] - MATCH_TOKEN;
+            s = r + 1;
+            r = s;
+        }
+        // Whether capture.rs has put the whole argument in pstack[n].
+        let mut captured = false;
+        // What the first pass has instead of a capture of its own.
+        #[cfg(not(feature = "slow_capture"))]
+        let mut first = Some(tried);
+        // §418.  `continue:` is the top of this loop, `found:` is right after it.
+        'found: loop {
+            #[cfg(not(feature = "slow_capture"))]
+            {
+                let c = match first.take() {
+                    Some((c, m0)) => {
+                        m = m0;
+                        c
+                    }
+                    None if r == s && self.state() == TOKEN_LIST => self.macrocall_capture::<false>(&mut r, n, mark, &mut m),
+                    None => 0,
+                };
+                if c == crate::capture::CAPTURE_DONE {
+                    captured = true;
+                    break 'found;
+                }
+                if c > 0 {
+                    unbalance = c;
+                    if !self.macrocall_group(mark, n, &mut unbalance) {
+                        return -1;
+                    }
+                    m += 1;
+                    if self.toks[r] > END_MATCH_TOKEN {
+                        continue 'found;
+                    }
+                    if self.toks[r] < MATCH_TOKEN {
+                        continue 'found;
+                    }
+                    break 'found;
+                }
+            }
+            self.get_token();
+            if self.cur_tok == self.toks[r] {
+                // §420
+                r += 1;
+                if self.toks[r] >= MATCH_TOKEN && self.toks[r] <= END_MATCH_TOKEN {
+                    if self.cur_tok < LEFT_BRACE_LIMIT {
+                        self.align_state -= 1;
+                    }
+                    break 'found;
+                }
+                continue 'found;
+            }
+            // §423
+            if s != r {
+                if s == NULL {
+                    // §424
+                    self.print_err_s(b"Use of ");
+                    self.sprint_cs(self.warning_index);
+                    self.print_s(b" doesn't match its definition");
+                    self.help(&[
+                        b"If you say, e.g., `\\def\\a1{...}', then you must always",
+                        b"put `1' after `\\a', since control sequence names are",
+                        b"made up of letters only. The macro here has not been",
+                        b"followed by the required stuff, so I'm ignoring it.",
+                    ]);
+                    self.error();
+                    return -1;
+                }
+                let mut t = s;
+                loop {
+                    self.tb_push(self.toks[t]);
+                    m += 1;
+                    let mut u = t + 1;
+                    let mut v = s;
+                    loop {
+                        if u == r {
+                            if self.cur_tok != self.toks[v] {
+                                break; // goto done
+                            }
+                            r = v + 1;
+                            continue 'found;
+                        }
+                        if self.toks[u] != self.toks[v] {
+                            break; // goto done
+                        }
+                        u += 1;
+                        v += 1;
+                    }
+                    // done:
+                    t += 1;
+                    if t == r {
+                        break;
+                    }
+                }
+                r = s;
+            }
+            if self.cur_tok == self.par_token && self.long_state != LONG_CALL {
+                self.macrocall_runaway_abort(mark, n, unbalance);
+                return -1;
+            }
+            if self.cur_tok < RIGHT_BRACE_LIMIT {
+                if self.cur_tok < LEFT_BRACE_LIMIT {
+                    // §425
+                    unbalance = 1;
+                    self.tb_push(self.cur_tok);
+                    if !self.macrocall_group(mark, n, &mut unbalance) {
+                        return -1;
+                    }
+                } else {
+                    // §421
+                    self.back_input();
+                    self.print_err_s(b"Argument of ");
+                    self.sprint_cs(self.warning_index);
+                    self.print_s(b" has an extra }");
+                    self.help(&[
+                        b"I've run across a `}' that doesn't seem to match anything.",
+                        b"For example, `\\def\\a#1{...}' and `\\a}' would produce",
+                        b"this error. If you simply proceed now, the `\\par' that",
+                        b"I've just inserted will cause me to report a runaway",
+                        b"argument that might be the root of the problem. But if",
+                        b"your `}' was spurious, just type `2' and it will go away.",
+                    ]);
+                    self.align_state += 1;
+                    self.long_state = CALL;
+                    self.cur_tok = self.par_token;
+                    self.ins_error();
+                    continue 'found;
+                }
+            } else {
+                // §419
+                if self.cur_tok == SPACE_TOKEN
+                    && self.toks[r] <= END_MATCH_TOKEN
+                    && self.toks[r] >= MATCH_TOKEN
+                {
+                    continue 'found;
+                }
+                self.tb_push(self.cur_tok);
+            }
+            m += 1;
+            if self.toks[r] > END_MATCH_TOKEN {
+                continue 'found;
+            }
+            if self.toks[r] < MATCH_TOKEN {
+                continue 'found;
+            }
+            break 'found;
+        }
+        // found:
+        if s != NULL {
+            // §426.  m=1 means the list is one token or one group, so a last token
+            // below right_brace_limit is the group's closing brace.
+            if !captured {
+                self.pstack[n] = if m == 1 && self.tb[self.tb_ptr - 1] < RIGHT_BRACE_LIMIT {
+                    self.tb_commit_strip(mark)
+                } else {
+                    self.tb_commit(mark)
+                };
+            }
+            n += 1;
+            if self.tracing_macros() > 0 {
+                self.macrocall_show_arg(match_chr, n);
+            }
+        }
+        // now toks[r] is a token whose command code is either match or end_match
+        if self.toks[r] == END_MATCH_TOKEN && captured {
+            self.capture_leave();
+        }
+        ((r as i64) << 32) | (n as u32 as i64)
+    }
+
+    /// §418's first pass, `r=s`, as a capture: of an undelimited parameter if the parameter text goes on at `s` with a match or the end_match, else
+    /// of a delimited one, which moves `s` past its delimiter when it is done.  `macro_call`'s loop has it with `HERE`, the undelimited capture in
+    /// line, and `macrocall_param` without: one choice for both, so that the `tried` that the first hands on is the capture the second would make.
+    #[cfg(not(feature = "slow_capture"))]
+    #[inline(always)]
+    fn macrocall_capture<const HERE: bool>(&mut self, s: &mut i32, n: i32, mark: i32, m: &mut i32) -> i32 {
+        if self.toks[*s] <= END_MATCH_TOKEN && self.toks[*s] >= MATCH_TOKEN {
+            if HERE { self.capture_undelimited_here(n) } else { self.capture_undelimited(n) }
+        } else {
+            self.v_macrocall.delimiter = *s;
+            self.capture_delimited(s, n, mark, m)
+        }
+    }
+
+    /// §426's line of `\tracingmacros` for the argument `n`, with its test of `\tracingstacklevels`.
+    #[cold]
+    #[inline(never)]
+    fn macrocall_show_arg(&mut self, match_chr: i32, n: i32) {
+        if self.tracing_stack_levels() == 0 || self.input_ptr < self.tracing_stack_levels() {
+            self.begin_diagnostic();
+            self.print_nl(match_chr);
+            self.print_int(n);
+            self.print_s(b"<-");
+            self.show_token_list(self.pstack[n - 1] + 1, NULL, 1000);
+            self.end_diagnostic(false);
+        }
     }
 
     /// §425's loop, with its left brace on the builder and its `unbalance` above 0.  False if §422 ended it, for the caller's `return`.
@@ -709,6 +784,92 @@ mod tests {
             read_and_call(t, b"\\m ab.\r");
             assert_eq!(printed(t), want);
             Tex::dealloc(t);
+        }
+    }
+
+    /// `\b`'s body `\m#1!`, its `#1` the one token `y`: capture.rs gives `\m` that token with no level of §381, which the oracle's `input_ptr` still
+    /// counts when §426 tests it against `\tracingstacklevels`.  At 2 the oracle shows the call of `\m` and not its argument, as its `input_ptr` is 2 there;
+    /// without that level it would be 1.  So under that tracing the literal loop reads the argument.  tests/integration/capture/param_one_stacklevels.tex
+    /// has the same against the oracle's log.
+    #[test]
+    fn a_bare_parameter_handed_on_under_tracing_stack_levels() {
+        for (levels, want) in [(0, "\n\\m #1->\n#1<-y\n"), (1, "~~\\m \n"), (2, "\n~.\\m #1->\n"), (3, "\n~.\\m #1->\n#1<-y\n")] {
+            let (t, _) = error_machine(&[MATCH_TOKEN + 35], &[]);
+            t.set_tracing_macros(1);
+            t.set_tracing_stack_levels(levels);
+            // The level of `\b`, its #1 the list `y`, with a high-water mark that §381's push would not raise.
+            let y = t.tok_one(LETTER_TOKEN + 121);
+            t.param_stack[0] = y;
+            t.param_ptr = 1;
+            let hb = def_macro(t, cs(b'b'), CALL, &[], &[cs_tok(b'm'), OUT_PARAM_TOKEN + 1, OTHER_TOKEN + 33]);
+            t.begin_token_list(hb, MACRO);
+            t.set_param_start(0);
+            t.set_loc(hb + 2);
+            t.max_in_stack = 10;
+            t.get_next();
+            assert_eq!(t.cur_cmd, CALL);
+            t.macro_call();
+            assert_eq!(printed(t), want, "at \\tracingstacklevels={}", levels);
+            assert_eq!((t.input_ptr, t.param_ptr, t.max_in_stack), (2, 2, 10), "§416 has ended any level of #1");
+            assert_eq!(list(t, t.param_stack[1]), vec![LETTER_TOKEN + 121]);
+            assert_eq!(t.toks[t.param_stack[1]] & crate::toks::ARG_CLEAN, 0, "not marked, as tb_commit leaves a block");
+            assert_eq!(drain(t, OTHER_TOKEN + 33), vec![]);
+            assert_eq!(t.loc(), hb + 5, "past the ! of \\b's body");
+            Tex::dealloc(t);
+        }
+    }
+
+    /// The same call of `\m` with a bare `#1`, where the literal loop's `tb_push` or `tb_commit` calls `webmem.rs`: with the class-1 free list empty and
+    /// `toks_watch` at the top of the heap, `web_bump` has `web_schedule` count the token on the builder, and with the builder at `tb_limit`, `web_room`
+    /// does.  A block that capture.rs took for it would have `webmem.rs` ask without the token, and set the limits, and any peak it notes, one cell lower,
+    /// so there it leaves the argument to the literal loop.  Each case runs as it comes and again under `\tracingmacros` and `\tracingstacklevels`, where the literal loop reads
+    /// the argument in any case, and the heap, the limits and the peak have to come out the same.  With a free block and no limit near, nothing calls.
+    #[test]
+    fn a_bare_parameter_leaves_main_memory_as_the_literal_loop_does() {
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum At {
+            NewBlock,
+            BuilderLimit,
+            FreeBlock,
+        }
+        fn run(at: At, literal: bool) -> Vec<i32> {
+            let (t, _) = error_machine(&[MATCH_TOKEN + 35], &[]);
+            if literal {
+                t.set_tracing_macros(1);
+                t.set_tracing_stack_levels(100);
+            }
+            let y = t.tok_one(LETTER_TOKEN + 121);
+            t.param_stack[0] = y;
+            t.param_ptr = 1;
+            let hb = def_macro(t, cs(b'b'), CALL, &[], &[cs_tok(b'm'), OUT_PARAM_TOKEN + 1, OTHER_TOKEN + 33]);
+            if at != At::NewBlock {
+                let f = t.tok_one(LETTER_TOKEN + 122);
+                t.flush_list(f);
+            }
+            assert_eq!(t.tok_free[1] == 0, at == At::NewBlock);
+            t.begin_token_list(hb, MACRO);
+            t.set_param_start(0);
+            t.set_loc(hb + 2);
+            t.max_in_stack = 10;
+            t.get_next();
+            assert_eq!(t.cur_cmd, CALL);
+            // A memory whose coarse room is some thousands of cells, so that `web_schedule` sets limits that the one token moves.
+            t.main_memory = (1 << 16) + 4000;
+            t.v_webmem.toks_watch = t.toks_top;
+            if at == At::BuilderLimit {
+                t.tb_limit = t.tb_ptr;
+            }
+            t.macro_call();
+            assert_eq!(list(t, t.param_stack[1]), vec![LETTER_TOKEN + 121]);
+            let w = &t.v_webmem;
+            let state = vec![t.toks_top, t.tok_free[1], t.param_stack[1], t.tb_ptr, t.tb_limit, t.tx_limit, w.toks_watch, w.lo_watch, w.peak, w.fine, w.committed];
+            // The machine's first `web_schedule`, with no main memory, set `tb_limit` to the builder's capacity.
+            assert_eq!(t.tb_limit < TB_CAP as i32, at != At::FreeBlock, "{:?}: whether webmem.rs set the limits again", at);
+            Tex::dealloc(t);
+            state
+        }
+        for at in [At::NewBlock, At::BuilderLimit, At::FreeBlock] {
+            assert_eq!(run(at, false), run(at, true), "{:?}", at);
         }
     }
 }

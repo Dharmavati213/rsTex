@@ -400,6 +400,7 @@ fn replay(job: &Job, gtu: &mut GlyphUnicodeMap, w: &mut Vec<Vec<u8>>, tally: &mu
             fontname: &preset,
             tx_codes: fd.tx.as_ref(),
             used_tags: &used_tags,
+            decrypt: decrypt_run,
         };
         let start = std::time::Instant::now();
         let o = write_t1(&inp, &mut fd.dims, &mut fd.gl, &mut carry, &mut out).map_err(|e| fatal(e, w))?;

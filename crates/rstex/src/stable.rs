@@ -50,7 +50,7 @@ const DEFAULT_LIMIT: u32 = 5;
 const SET_ASIDE: &[u8] = b"-SAVE-ERROR";
 
 /// What the command line says of this.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UntilStable {
     pub on: bool,
     /// This pass's number, which only a pass gives the next.

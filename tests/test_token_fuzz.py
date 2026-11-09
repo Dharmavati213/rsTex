@@ -107,6 +107,47 @@ def main():
             case, kind = fuzz.load_case(os.path.join(base, "kept"))
             return kind, case.options
         check("a kept case says what format it ran on, and its options", kept_format, ("outer", ["-cnf-line=max_print_line=70"]))
+
+        # --memory: the filler leaves the cells it says, on both programs, and a \def of nothing takes two, its head and its end_match.
+        def filled(left, rest, kind=None, m=3000, kerns=0):
+            fuzz.FORMAT_KIND[0] = kind
+            try:
+                text = fuzz.PREAMBLE + fuzz.memory_filler(m - fuzz.MEMORY_USED[kind] - left, kerns) + rest + "\\end\n"
+                return fuzz.judge(engine, fuzz.Case({"f.tex": text}, b"", "batchmode", ["-cnf-line=main_memory=%d" % m]), work, 40)[0]
+            finally:
+                fuzz.FORMAT_KIND[0] = None
+                fuzz.drop_formats_for([work])
+        check("--memory's filler with one cell left: a \\def of nothing fills main memory at the same token on both", lambda: filled(1, "\\def\\a{}"), "overflow")
+        check("and with two left it fits", lambda: filled(2, "\\def\\a{}"), "same")
+        check("under --format, whose formats are made with the document's main_memory, above webmem.rs's MARGIN",
+              lambda: (filled(1, "\\def\\a{}", "clean", 70000), filled(2, "\\def\\a{}", "outer", 70000)), ("overflow", "same"))
+        check("so many kerns before the filler leave its room as it was, on -ini and on a format",
+              lambda: tuple(filled(left, "\\def\\a{}", kind, 5000, fuzz.MEMORY_KERNS) for kind in (None, "clean") for left in (1, 2)), ("overflow", "same") * 2)
+
+        def work_kept():
+            fuzz.write_case(fuzz.Case({"f.tex": "a"}), work)
+            open(os.path.join(work, "f.log"), "w").close()
+            fd = os.open(work, os.O_RDONLY)
+            try:
+                fuzz.write_case(fuzz.Case({"f.tex": "b"}), work)
+                other = os.path.join(base, "w9-fmt-oracle")
+                os.makedirs(other, exist_ok=True)
+                fuzz.drop_formats_for([work])
+                return os.fstat(fd).st_nlink > 0 and os.path.samestat(os.fstat(fd), os.stat(work)), sorted(os.listdir(work)), os.path.isdir(other)
+            finally:
+                os.close(fd)
+        check("a work directory stays from one document to the next, emptied, as kpathsea's xgetcwd stops at an entry that goes, and a run takes away only its own formats",
+              work_kept, (True, ["f.tex"], True))
+        check("no line of the filler is longer than --small's least buf_size", lambda: max(len(line) for line in fuzz.memory_filler(300000, fuzz.MEMORY_KERNS).split("\n")) < 500, True)
+
+        def seeded():
+            a, b, small = fuzz.case_for("scan", 7, True, True), fuzz.case_for("scan", 7, True, True), fuzz.case_for("scan", 7, True, False)
+            plain = fuzz.case_of("scan", 7).files["f.tex"]
+            m = fuzz.main_memory_of(a.options)
+            return (a.files == b.files and a.options == b.options, a.options[:len(small.options)] == small.options, 3000 <= m <= 300000,
+                    a.files["f.tex"].startswith(fuzz.PREAMBLE) and "\\def\\Mfill{" in a.files["f.tex"] and a.files["f.tex"].endswith(plain[len(fuzz.PREAMBLE):]))
+        check("the seed alone makes a --memory document: with --small's capacities and main_memory among its options, and the generator's document after the filler",
+              seeded, (True, True, True, True))
     finally:
         shutil.rmtree(base, ignore_errors=True)
     print("PASS" if not failed else "FAIL: %d" % failed)

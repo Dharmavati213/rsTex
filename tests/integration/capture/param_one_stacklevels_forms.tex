@@ -1,0 +1,20 @@
+% mode: ini-etex
+% A bare #k as an undelimited argument in each form, under \tracingmacros=2 and \tracingstacklevels from 1 to 6: two in a row, a control sequence
+% (\relax, and \empty, which is undefined here), a character before or after it, and &.  Then all of it again after an \outer\def, which sends the
+% capture loops to their forms for a user \outer.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \catcode`\&=4
+\tracingmacros=2 \tracingonline=1
+\def\z#1{#1}
+\z{\z{\z{\z{\z{\z{}}}}}}
+\def\b#1#2{}
+\def\a#1#2{\b#1#2}
+\def\c#1{\b#1y}
+\def\d#1{\b x#1}
+\count1=1
+\def\loop{\tracingstacklevels=\count1 \a xy\a\relax\empty\c x\d x\a&& \advance\count1 by 1 \ifnum\count1<7 \expandafter\loop\fi}
+\loop
+\tracingstacklevels=0
+\outer\def\o{}
+\count1=1
+\loop
+\end

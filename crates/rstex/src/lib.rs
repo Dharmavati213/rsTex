@@ -86,7 +86,10 @@ const LONG_OPTIONS: &[(&str, HasArg)] = &[
 ];
 
 /// Everything the command line says, as texmfmp.c's statics and the globals it sets.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// A checkpoint's key holds all of it, as `Hash` writes it ([`config_bytes`]): each field's `Hash` must tell apart every two values that differ, as those of bytes, integers,
+/// `Option` and `Vec` do, and a `Path`'s, which takes `a//b` for `a/b`, would not.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Options {
     /// `argv[0]`.
     invocation: Vec<u8>,
@@ -614,8 +617,8 @@ fn program_basename(invocation: &[u8]) -> Vec<u8> {
     rstex_kpse::names::remove_suffix(base).to_vec()
 }
 
-/// What `maininit` decides beyond the options.
-#[derive(Debug, PartialEq, Eq)]
+/// What `maininit` decides beyond the options.  In a checkpoint's key as [`Options`] is.
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct Init {
     /// `kpse_program_name`.
     program_name: Vec<u8>,
@@ -999,8 +1002,8 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
         for m in &o.messages {
             write_all(true, m);
         }
-        for mut m in warnings {
-            m.push(b'\n');
+        // Each whole, with its line end, as kpathsea prints it.
+        for m in warnings {
             write_all(true, &m);
         }
         if let Some(status) = stable::before_the_first_pass(until_stable, o.c_job_name.as_deref(), &init.command_line, o.output_directory.as_deref()) {
@@ -1018,7 +1021,7 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
     rstex_engine::prof_phase!("kpse init");
     let snapshot = !o.no_snapshot && !o.ini_version && !init.command_line.is_empty() && platform::env_var(b"RSTEX_NO_SNAPSHOT").is_none();
     // All that the command line and texmf.cnf decided is part of the key, by being in these two.
-    let config = if snapshot || until_stable.on { rstex_engine::checkpoint::checkpoint_config(&format!("{:?}\n{:?}", o, init).into_bytes()) } else { None };
+    let config = if snapshot || until_stable.on { rstex_engine::checkpoint::checkpoint_config(&config_bytes(&o, &init)) } else { None };
     let mut seen = None;
     if until_stable.on {
         match state {
@@ -1104,6 +1107,26 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
     t.host.world.recorder_begin();
     t.main_body(); // ends in do_final_end, so it does not return
     0
+}
+
+/// What a checkpoint's key holds of the options and of what `maininit` decided: every field, in order, as `Hash` writes it, with a length before each list and the variant
+/// before what an `Option` holds, so that two that differ in anything differ here.  Their `{:?}` said as much, but printed each path as a list of numbers, some 200000
+/// instructions on every run that may take a checkpoint: 4% of a plain hello, and 5% of a run of hello from its last page record.
+fn config_bytes(o: &Options, init: &Init) -> Vec<u8> {
+    /// A `Hasher` that keeps what it is given.
+    struct Bytes(Vec<u8>);
+    impl std::hash::Hasher for Bytes {
+        fn finish(&self) -> u64 {
+            0
+        }
+        fn write(&mut self, b: &[u8]) {
+            self.0.extend_from_slice(b);
+        }
+    }
+    let mut b = Bytes(Vec::with_capacity(2048));
+    std::hash::Hash::hash(o, &mut b);
+    std::hash::Hash::hash(init, &mut b);
+    b.0
 }
 
 /// What a panic says.  It ends the process then, with `panic = "abort"`, and so a core dump where there are such: nothing that the log's buffer holds gets out.

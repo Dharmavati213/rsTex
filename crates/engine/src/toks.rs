@@ -71,6 +71,8 @@ pub const NUM_CLASSES: usize = 256;
 /// Cells above every block, for what [`Tex::tb_show`] copies when the heap is full: `runaway` shows at most `error_line-10` characters, and that
 /// is under 255 tokens unless a token prints nothing.
 const TOKS_SHOW_ROOM: usize = 256;
+// `Tex::expand_tx_chars` reads four cells at a time, up to three past a list's end.
+const _: () = assert!(TOKS_SHOW_ROOM >= 3);
 /// Where the bump space ends.
 const TOKS_LIMIT: usize = TOKS_CAP - TOKS_SHOW_ROOM;
 /// With the feature `tight_heap`, how many cells a run that loaded a format has above what the format holds.  Ordinary documents then get to
@@ -914,7 +916,14 @@ impl Tex {
         let mut match_chr = b'#' as i32;
         let mut n = b'0' as i32;
         self.tally = 0;
-        while self.toks_show_more(p) && self.tally < l {
+        let to_string = self.selector == NEW_STRING && !self.message_printing && self.str_ptr > 255;
+        loop {
+            if to_string {
+                p = self.show_chars_to_string(p, q, l);
+            }
+            if !(self.toks_show_more(p) && self.tally < l) {
+                break;
+            }
             if p == q {
                 // §342
                 self.set_trick_count();
@@ -973,6 +982,44 @@ impl Tex {
         if self.toks_show_more(p) {
             self.print_esc_s(b"ETC.");
         }
+    }
+
+    /// §316's `print(c)` for a run of tokens of the classes that print their character, from `p` on, into a string: with
+    /// the selector at new_string, no message being printed and `str_ptr` past 255, print is print_char, which appends if
+    /// the pool has room and adds one to `tally`.  The run stops where §314, §315 or §342 have something to do: at `q`,
+    /// outside the heap, at the end of the list, at `tally` reaching `l`, and at any other token, all of which the
+    /// general step of `show_token_list` then sees.  Says where it stopped.
+    #[inline(always)]
+    fn show_chars_to_string(&mut self, mut p: i32, q: i32, l: i32) -> i32 {
+        const PRINTS_C: u32 = 1 << LEFT_BRACE
+            | 1 << RIGHT_BRACE
+            | 1 << MATH_SHIFT
+            | 1 << TAB_MARK
+            | 1 << SUP_MARK
+            | 1 << SUB_MARK
+            | 1 << SPACER
+            | 1 << LETTER
+            | 1 << OTHER_CHAR;
+        let top = self.toks_top;
+        let mut tally = self.tally;
+        let mut k = self.pool_ptr;
+        let pool_size = self.pool_size;
+        while p > 0 && p < top && p != q && tally < l {
+            let t = self.toks[p];
+            // A token from 1 to CS_TOKEN_FLAG-1 has a class from 0 to 15.
+            if t <= 0 || t >= CS_TOKEN_FLAG || PRINTS_C >> (t >> 8) & 1 == 0 {
+                break;
+            }
+            if k < pool_size {
+                self.str_pool.put(k, t & 255);
+                k += 1;
+            }
+            tally += 1;
+            p += 1;
+        }
+        self.pool_ptr = k;
+        self.tally = tally;
+        p
     }
 
     /// §314's `p<>null`.  WEB is robust against a wild `p`, and `toks` is unchecked, so a position
@@ -1864,5 +1911,65 @@ mod tests {
             assert!(went_back, "the end of the heap never went back to the bump space, with {} cells", room);
             Tex::dealloc(t);
         }
+    }
+
+    /// `show_token_list` into a string, where the characters go in a run at a time, gives what it gives on the terminal, where
+    /// each goes through `print`: the same text, `tally`, `first_count` and `trick_count` of §342, and the `ETC.`, for lists of
+    /// every kind of token, every limit `l` and every place of `q`.  With a pool that fills, the characters past it are dropped
+    /// and still counted.
+    #[test]
+    fn show_token_list_into_a_string_shows_as_on_the_terminal() {
+        use super::testkit::{machine, print_setup, printed};
+        let t = machine();
+        print_setup(t);
+        t.max_print_line = 1_000_000;
+        let kinds = [
+            LETTER_TOKEN + b'a' as i32,
+            OTHER_TOKEN + b'1' as i32,
+            SPACE_TOKEN,
+            LEFT_BRACE_TOKEN + b'{' as i32,
+            RIGHT_BRACE_TOKEN + b'}' as i32,
+            MATH_SHIFT_TOKEN + b'$' as i32,
+            TAB_TOKEN + b'&' as i32,
+            SUP_MARK * 256 + b'^' as i32,
+            SUB_MARK * 256 + b'_' as i32,
+            MAC_PARAM * 256 + b'#' as i32,
+            MATCH_TOKEN + b'#' as i32,
+            OUT_PARAM_TOKEN + 1,
+            END_MATCH_TOKEN,
+            CS_TOKEN_FLAG + SINGLE_BASE + b'x' as i32,
+            1,
+        ];
+        let mut rng = Rng(0x2545F4914F6CDD1D);
+        for _ in 0..300 {
+            let len = 1 + rng.below(24) as i32;
+            let toks: Vec<i32> = (0..len)
+                .map(|_| if rng.below(3) == 0 { kinds[rng.below(kinds.len() as u64) as usize] } else { kinds[rng.below(3) as usize] })
+                .collect();
+            let p = commit(t, &toks) + 1;
+            for l in 0..len + 3 {
+                for q in core::iter::once(NULL).chain(p..p + len + 1) {
+                    t.selector = TERM_ONLY;
+                    (t.first_count, t.trick_count) = (-1, -1);
+                    t.show_token_list(p, q, l);
+                    let term = printed(t);
+                    let seen = (t.tally, t.first_count, t.trick_count);
+                    for room in [i32::MAX, 0, 1, 5] {
+                        t.selector = NEW_STRING;
+                        (t.first_count, t.trick_count) = (-1, -1);
+                        let (b, pool_size) = (t.pool_ptr, t.pool_size);
+                        t.pool_size = (b as i64 + room as i64).min(pool_size as i64) as i32;
+                        t.show_token_list(p, q, l);
+                        let s: Vec<u8> = t.str_pool.range(b, t.pool_ptr).iter().map(|&c| c as u8).collect();
+                        (t.pool_ptr, t.pool_size) = (b, pool_size);
+                        let want = &term.as_bytes()[..term.len().min(room as usize)];
+                        assert_eq!(s, want, "{toks:?} l={l} q={q} room={room}");
+                        assert_eq!((t.tally, t.first_count, t.trick_count), seen, "{toks:?} l={l} q={q} room={room}");
+                    }
+                }
+            }
+            t.flush_list(p - 1);
+        }
+        Tex::dealloc(t);
     }
 }

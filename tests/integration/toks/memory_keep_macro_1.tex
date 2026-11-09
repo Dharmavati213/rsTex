@@ -1,0 +1,10 @@
+% mode: ini-etex
+% env: main_memory=250000
+% As memory_keep_macro_0, at another place in the round.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6
+\batchmode
+\toks0{aa}
+\def\num{12}\def\chk{\ifnum\num<0 \fi}
+\def\round{\special{x}\chk\round}
+\setbox0\vbox{\round}
+\end

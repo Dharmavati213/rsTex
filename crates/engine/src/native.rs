@@ -2222,7 +2222,12 @@ impl Tex {
         }
         let n = host_line_end(data);
         rd.scratch.clear();
-        rd.scratch.extend(data[..n].iter().map(|&c| self.xord[c as i32]));
+        // `xord` as `input_ln` applies it: only when it moves a byte.
+        if self.v_print.xord_identity {
+            rd.scratch.extend_from_slice(&data[..n]);
+        } else {
+            rd.scratch.extend(data[..n].iter().map(|&c| self.xord[c as i32]));
+        }
         while rd.scratch.last() == Some(&b' ') {
             rd.scratch.pop();
         }
@@ -5530,8 +5535,17 @@ impl<'a> Sink<'a> {
     fn literal_tokens(&mut self, ops: &[u8]) -> i32 {
         let t = &mut *self.t;
         let m = t.tb_mark();
-        for &c in ops {
-            t.tb_push(if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 });
+        let n = ops.len() as i32;
+        if m + n <= t.tb_limit {
+            // `tb_push` of each, none of which comes to `tb_limit`, all at once as `str_toks` does it.
+            for (d, &c) in t.tb.range_mut(m, m + n).iter_mut().zip(ops) {
+                *d = if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 };
+            }
+            t.tb_ptr = m + n;
+        } else {
+            for &c in ops {
+                t.tb_push(if c == b' ' { SPACE_TOKEN } else { OTHER_TOKEN + c as i32 });
+            }
         }
         t.tb_commit(m)
     }

@@ -23,15 +23,24 @@ fn table() -> Vec<(String, usize, String)> {
     rows
 }
 
+/// Each case, with each `png::Kernels` that this CPU can run.
 #[test]
 fn every_case_agrees_with_the_oracle() {
+    for (name, kernels) in common::kernels() {
+        eprintln!("PNG kernels: {name}");
+        every_case_agrees_with_the_oracle_by(kernels);
+    }
+}
+
+fn every_case_agrees_with_the_oracle_by(kernels: rstex_image::png::Kernels) {
     let set = gen_inputs::all();
     let fontmap: HashMap<Vec<u8>, Vec<u8>> =
         set.fontmap.iter().map(|(a, b)| (a.as_bytes().to_vec(), b.as_bytes().to_vec())).collect();
     let mut families: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut names: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for c in &set.cases {
-        let p = sim::Params::parse(&c.params);
+        let mut p = sim::Params::parse(&c.params);
+        p.kernels = kernels;
         let out = sim::run_case(&p, &c.images, fontmap.clone(), |name| {
             set.files.get(name).unwrap_or_else(|| panic!("no file {name}")).clone()
         });

@@ -1,0 +1,10 @@
+% mode: ini-etex
+% env: main_memory=250003
+% As ifcsname_memory_0, with the stop at another place in a group of four.
+\catcode`\{=1 \catcode`\}=2 \catcode`\#=6 \tracingstats=1 \errorcontextlines=5
+\def\a{ab1.2:xyz/Q}
+\def\b{\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a}
+\def\c{\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b}
+\def\d{\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c\c}
+\ifcsname\d\d\d\d\d\endcsname \message{yes}\else\message{no}\fi
+\end
