@@ -21,7 +21,6 @@ import argparse
 import concurrent.futures
 import gzip
 import importlib.util
-import json
 import os
 import re
 import shutil

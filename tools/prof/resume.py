@@ -83,9 +83,6 @@ class Runner:
         self.cache = os.path.join(root, 'cache')
         os.makedirs(self.cache, exist_ok=True)
         self.base_env = env_for(doc, self.cache)
-        for kv in filter(None, os.environ.get('RESUME_EXTRA_ENV', '').split(',')):
-            k, v = kv.split('=', 1)
-            self.base_env[k] = v
         self.private = doc.id.startswith(('user/', 'local/', 'cd-local/'))
 
     def argv(self):

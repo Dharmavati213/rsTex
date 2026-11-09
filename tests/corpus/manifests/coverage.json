@@ -45,10 +45,6 @@
    "why": "rstex lays out its format differently (DESIGN sections 4 and 7), so .fmt bytes do not compare. A format cannot be loaded across engines."
   },
   {
-   "what": "dropped or deferred features keep entries that a candidate without them cannot pass: coverage/prim-image/png and pdf (deferred), letterspacefont (needs VF), pdfmapline-ttf and pdfmapline-otf (TrueType, OTF), synctex",
-   "why": "DESIGN section 3. They stay in the denominator, so the count states what is missing instead of hiding it."
-  },
-  {
    "what": "the fuzzer runs 2000 seeds, 0 to 1999",
    "why": "A budget, not a limit: tests/corpus/gen/all.py --seeds N runs more. Failing cases shrink with tests/corpus/gen/shrink.py."
   },
@@ -52425,7 +52421,6 @@
    "id": "coverage/prim-image/pdf",
    "main": "target/corpus/gen/prim-image/pdf/doc.tex",
    "mode": "plain",
-   "notes": "PDF inclusion: deferred by DESIGN section 3, so this entry waits for that work",
    "tier": "full"
   },
   {
@@ -52464,7 +52459,6 @@
    "id": "coverage/prim-image/png",
    "main": "target/corpus/gen/prim-image/png/doc.tex",
    "mode": "plain",
-   "notes": "PNG inclusion: deferred by DESIGN section 3, so this entry waits for that work",
    "tier": "full"
   },
   {

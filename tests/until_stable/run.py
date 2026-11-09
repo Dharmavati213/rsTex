@@ -1024,7 +1024,7 @@ def case_plain_tex_and_no_flag(engine):
 def case_own_outputs_by_another_name(engine):
     """The job's own PDF, .aux and .log, asked of by another name than the one the pass writes them by: a whole path, a `..`, a symbolic link and a second link to the PDF, and a whole path to the .aux and
     the .log, in the body.  What a pass reads of a file after it began to write it is its own doing by any name, and the PDF is no side file by any name: each build ends as with the file's own name, with
-    as many passes and status 0, as latexmk's does.  They used to run to the limit, five passes and status 11, on every build."""
+    as many passes and status 0, as latexmk's does."""
     pdf = '\\documentclass{article}\n\\begin{document}\nA.\\newpage\n\\message{[size=\\pdffilesize{NAME}]}\nB.\n\\end{document}\n'
     sums = '\\documentclass{article}\n\\begin{document}\nA.\\message{[s=\\pdfmdfivesum file{NAME}]}\n\\end{document}\n'
     ways = [('pdf-own', pdf, 'a.pdf'), ('pdf-whole-path', pdf, '@DIR@/a.pdf'), ('pdf-dotdot', pdf, 'sub/../a.pdf'), ('pdf-symlink', pdf, 'view.pdf'), ('pdf-hard-link', pdf, 'hard.pdf'),

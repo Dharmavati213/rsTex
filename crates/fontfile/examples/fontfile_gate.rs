@@ -542,9 +542,6 @@ fn compare_desc(
             Ok(e) => {
                 if e != out {
                     p.push(format!("font bytes differ at {}", first_diff(out, &e)));
-                    if std::env::var_os("FONTFILE_GATE_DUMP").is_some() {
-                        let _ = fs::write(format!("{}.port", d.stream), out);
-                    }
                 }
             }
             Err(x) => p.push(format!("{}: {}", d.stream, x)),

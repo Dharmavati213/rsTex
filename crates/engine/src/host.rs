@@ -22,7 +22,7 @@
 //! of it comes before the first lookup:
 //!
 //! - [`World::set_program_name`] with `-progname`, or else the dump name: `TEXINPUTS.pdflatex` depends on it.
-//! - [`World::init_output_directory`] with `-output-directory`, or `None`; [`World::cnf_line`] for each `-cnf-line`.
+//! - [`World::init_output_directory`] with `-output-directory`, or `None`.
 //! - `format_default_length` and `host.tex_format_default`; `shellenabledp` and `restrictedshell` as
 //!   `init_shell_escape` leaves them.  The list of allowed commands is read here, at the first command.
 //! - `host.command_line`, `host.c_job_name` (`-jobname`), `host.world.recorder_enabled` (`-recorder`),
@@ -50,7 +50,6 @@ pub const TFM_FILE: FileId = 3;
 pub const VF_FILE: FileId = 4;
 pub const FMT_FILE: FileId = 5;
 pub const POOL_FILE: FileId = 6;
-pub const AUX_FILE: FileId = 7;
 pub const TERM_IN: FileId = 8;
 pub(crate) const READ_FILE_BASE: FileId = 16;
 pub(crate) const WRITE_FILE_BASE: FileId = 32;
@@ -438,14 +437,7 @@ impl World {
         World::default()
     }
 
-    /// Marks the run; the taint only ever rises.
-    pub fn mark_taint(&mut self, t: Taint) {
-        if t > self.taint {
-            self.taint = t;
-        }
-    }
-
-    /// [`World::mark_taint`], with the reason a checkpoint was refused.
+    /// Marks the run, with the reason a checkpoint was refused; the taint only ever rises.
     pub fn mark_taint_because(&mut self, t: Taint, why: &'static str) {
         if t > self.taint {
             self.taint = t;
@@ -536,11 +528,6 @@ impl World {
         matches!(self.var_value(var).as_deref().and_then(|v| v.first()), Some(b't' | b'y' | b'1'))
     }
 
-    /// `setupboundvariable`: §1512's variables, from `texmf.cnf` or the environment, or `dflt`.
-    pub fn setup_bound_var(&mut self, var: &[u8], dflt: i32) -> i32 {
-        rstex_kpse::setup_bound_var(var, dflt)
-    }
-
     /// `kpse_reset_program_name`: `-progname`, else the dump name.
     pub fn set_program_name(&mut self, name: &[u8]) {
         rstex_kpse::set_program_name(name);
@@ -556,17 +543,6 @@ impl World {
             }
             None => self.output_directory = self.env(b"TEXMF_OUTPUT_DIRECTORY"),
         }
-    }
-
-    /// `-cnf-line`.
-    pub fn cnf_line(&mut self, line: &[u8]) {
-        rstex_kpse::cnf_line_env_progname(line);
-        self.print_kpse_warnings();
-    }
-
-    /// `kpse_init_prog`: `mode` is the `MAKETEX_MODE` given, or `None`.
-    pub fn init_prog(&mut self, prefix: &[u8], dpi: i32, mode: Option<&[u8]>) {
-        rstex_kpse::init_prog(prefix, dpi as u32, mode);
     }
 
     /// `mk_shellcmdlist`: `shell_escape_commands = foo,bar,...`, with no spaces around the commas.
@@ -1067,12 +1043,6 @@ impl World {
     }
 
     // ---- files ----
-
-    /// True if `path` names a regular file; it does not count as an observation by itself, since
-    /// a later `read` or `stat` records the answer.
-    pub fn is_file(&self, path: &[u8]) -> bool {
-        std::fs::metadata(path_of(path)).map(|m| m.is_file()).unwrap_or(false)
-    }
 
     /// `remove(path)`: `remove_pdffile`, on a fatal error.
     pub fn remove_file(&mut self, path: &[u8]) -> bool {
@@ -1962,8 +1932,6 @@ impl Drop for OutFile {
     }
 }
 
-pub use rstex_pdfio::Deferred;
-
 /// What [`PdfOut::finish`] says if the file is not as it should be.
 #[derive(Debug)]
 pub struct PdfNotWritten {
@@ -1974,8 +1942,7 @@ pub struct PdfNotWritten {
 
 /// PDF output: `rstex_pdfio::ChunkWriter`, a list of chunks with deferred fields and no seek-back, and
 /// the name it is published under.  Bytes are appended; a field whose value is not yet known, such as
-/// `/Length`, is reserved with [`PdfOut::defer`] and filled with [`PdfOut::fill`], or overwritten by
-/// its absolute offset with [`PdfOut::patch`], as §685's `write_stream_length` does.
+/// `/Length`, is overwritten by its absolute offset with [`PdfOut::patch`], as §685's `write_stream_length` does.
 #[derive(Default)]
 pub struct PdfOut {
     pub path: Vec<u8>,
@@ -2013,14 +1980,6 @@ impl PdfOut {
     /// Puts what the workers made in its places.
     pub fn fill_reserved(&mut self, filled: impl IntoIterator<Item = (usize, Vec<u8>)>) {
         self.w.fill_reserved(filled);
-    }
-    /// Reserves `len` bytes, filled with spaces until [`PdfOut::fill`].
-    pub fn defer(&mut self, len: usize) -> Deferred {
-        self.w.defer(len)
-    }
-    /// Fills a deferred field, padded on the right with spaces.
-    pub fn fill(&mut self, d: Deferred, s: &[u8]) {
-        self.w.fill(d, s);
     }
     /// Overwrites bytes already written, by offset, also across chunks.
     pub fn patch(&mut self, offset: u64, s: &[u8]) {
@@ -2800,25 +2759,6 @@ impl Tex {
 
     // ---- writing ----
 
-    /// `put_byte(b, f)`, §1870, and every other byte written to a binary stream.
-    #[inline]
-    pub fn put_byte(&mut self, b: i32, f: FileId) {
-        match &mut self.host.files[f as usize] {
-            Slot::Out(o) => o.byte(b as u8),
-            Slot::Pdf(p) => p.write(&[b as u8]),
-            _ => {}
-        }
-    }
-
-    /// Bytes to a stream, in one piece.
-    pub fn put_bytes(&mut self, f: FileId, s: &[u8]) {
-        match &mut self.host.files[f as usize] {
-            Slot::Out(o) => o.bytes(s),
-            Slot::Pdf(p) => p.write(s),
-            _ => {}
-        }
-    }
-
     /// The PDF chunk list, while the PDF file is open.
     pub fn pdf_out_file(&mut self) -> Option<&mut PdfOut> {
         match &mut self.host.files[PDF_FILE as usize] {
@@ -3111,7 +3051,7 @@ mod tests {
         let st = w.shell(b"exit 3");
         assert_eq!(st, 3);
         assert_eq!(w.taint, Taint::Hard);
-        w.mark_taint(Taint::None);
+        w.mark_taint_because(Taint::None, "");
         assert_eq!(w.taint, Taint::Hard, "taint only rises");
     }
 
@@ -3419,18 +3359,6 @@ mod tests {
         p.finish().unwrap();
         assert_eq!(std::fs::read(&f).unwrap(), b"012345678942        ");
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn pdf_chunks_defer_without_seeking() {
-        let mut p = PdfOut::new(b"/tmp/unused.pdf");
-        p.write(b"abc ");
-        assert_eq!(p.offset(), 4);
-        let d = p.defer(6);
-        p.write(b" def");
-        assert_eq!(p.offset(), 14);
-        p.fill(d, b"123");
-        assert_eq!(p.contents(), b"abc 123    def");
     }
 
     /// Every place of either terminator in data up to 80 bytes long, after bytes one bit or the high bit away from them, and a second

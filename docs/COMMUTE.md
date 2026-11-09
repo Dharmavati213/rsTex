@@ -131,7 +131,7 @@ Exit status: 0 all written, 1 some diagrams were not, 2 usage or I/O error, 3 ev
 
 ## Good to know
 
-- The same input gives the same bytes on every run: a PDF holds no date and no id. Nothing in the output depends on the system, though so far it has only been run on Linux.
+- The same input gives the same bytes on every run: a PDF holds no date and no id. Nothing in the output depends on the system: CI compares the PDF and SVG of the diagrams of `tests/cd` on Linux, macOS and Windows, and they are the same bytes (`docs/BUILD.md`, "What has run on macOS and Windows").
 - Diagrams of one file without a preamble share one TeX, so what a macro in a cell does globally, as `\stepcounter` does, is seen by the diagrams after it. With a preamble each has its own.
 - A PDF holds no `ToUnicode` table and its fonts are not compressed, as both cost more time than a small file is worth: about 1 KB against 20. Under a preamble both are as usual.
 - What is built goes to the cache directory (`~/.cache/rstex`, `~/Library/Caches/rstex`, `%LOCALAPPDATA%\rstex\cache`), and is built again if the tree or a preamble changes. It can be deleted at any time. Without a preamble the files of the format are looked at once a minute, not on every run.

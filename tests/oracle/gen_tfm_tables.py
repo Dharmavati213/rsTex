@@ -109,7 +109,6 @@ def build(ops):
     return bytes(out)
 
 
-C_A = 0x01110400
 # (name, operations, font spec, s, extra environment, how many fonts to load first)
 CASES = [
     # Whole, with the sizes it can be asked for at.  z' and alpha change at 128pt, 256pt, 512pt and 1024pt.

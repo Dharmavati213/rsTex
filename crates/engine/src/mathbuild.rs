@@ -961,7 +961,7 @@ mod tests {
         t
     }
 
-    /// A noad with empty fields, as new_noad makes, which is not ported in this tree.
+    /// A noad of type `ty` with empty fields, as `new_noad` makes one.
     fn noad(t: &mut Tex, ty: i32) -> i32 {
         let p = t.get_node(NOAD_SIZE);
         t.set_link(p, NULL);

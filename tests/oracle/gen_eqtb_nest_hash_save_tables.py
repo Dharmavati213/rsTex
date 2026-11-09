@@ -18,7 +18,7 @@ Run with python3 -I.  It writes, under crates/engine/testdata/:
 Every case runs in `pdftex -ini -etex` (or without -etex for compatibility mode) in a directory of its
 own, with each operation on a line of its own, so that its line number is known and the machine starts
 afresh.  The tests read the same operations and carry them out on the Rust routines directly, doing
-what the commands of main_control would do, since those are not ported yet.
+what the commands of main_control would do.
 
 Format: one case per line, fields separated by a tab.  Operations are separated by `;` and their
 arguments by a space.  A newline inside a field is `|`, which no output here contains; a control byte

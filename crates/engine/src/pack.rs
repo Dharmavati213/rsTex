@@ -1329,7 +1329,7 @@ pub(crate) mod packkit {
     }
 
     /// INITEX's state as far as these procedures read it, with the preamble of the generator's cases, and an in-memory
-    /// DVI file: `Slot::Pdf` keeps what it is given, and `write_dvi` takes any slot, as `put_bytes` does.
+    /// DVI file: `Slot::Pdf` keeps what it is given, and `write_dvi` takes any slot.
     pub fn pack_machine(params: &str) -> &'static mut Tex {
         let t = case_machine("pack", true);
         t.nest_size = 100;

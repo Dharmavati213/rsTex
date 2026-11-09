@@ -18,8 +18,6 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GUARD = os.path.join(HERE, "privacy_guard.py")
-INSTALL = os.path.join(HERE, "install-hooks.sh")
-GATE = os.path.join(HERE, "install-gate.sh")
 WORD = "the" + "sis"    # split so that no name below is a real mention under rule f
 FOUND = 3
 

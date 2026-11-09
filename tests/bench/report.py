@@ -64,7 +64,6 @@ FIGURES = (
     ('old-map', 'last-cold', None, 'old-map', 'One pass against the baseline under the old font map'),
     ('diagram-alone', 'diagram-alone', None, 'diagram-alone', 'A figure: commute against a standalone document with real tikz-cd'),
 )
-EDIT_FIRST = 'edit:settle'
 
 
 def die(message):

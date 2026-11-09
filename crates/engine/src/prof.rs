@@ -7,8 +7,7 @@
 //! | Variable | Meaning |
 //! |---|---|
 //! | `RSTEX_PROF_OUT` | The sampler runs, and its raw samples go to this file at exit |
-//! | `RSTEX_PROF_COUNTERS` | Counters, phases and scopes go to this file; if any `RSTEX_PROF*` variable is set without it, to stderr |
-//! | `RSTEX_PROF` | Set to anything: counters, phases and scopes to stderr, no sampler |
+//! | `RSTEX_PROF_COUNTERS` | Counters, phases and scopes go to this file; if `RSTEX_PROF_OUT` is set without it, to stderr |
 //! | `RSTEX_PROF_HZ` | `setitimer` rate, default 2000.  The kernel fires it at most once per tick, 1000 Hz on this machine's kernel |
 //! | `RSTEX_PROF_EVENT` | `NAME:PERIOD`: sample on that counter's overflow instead of the timer (Linux).  `SAMPLE_EVENTS` in `platform/unix.rs` has the names; `raw-HEX` is one of the CPU's own |
 //! | `RSTEX_PROF_T0` | `CLOCK_MONOTONIC` in ns as the spawner read it just before `exec`, the zero of the phase table |
@@ -200,7 +199,7 @@ mod on {
         let main_ns = sys::now_ns();
         let out = platform::env_var(b"RSTEX_PROF_OUT");
         let counters_to = platform::env_var(b"RSTEX_PROF_COUNTERS");
-        if out.is_none() && counters_to.is_none() && platform::env_var(b"RSTEX_PROF").is_none() {
+        if out.is_none() && counters_to.is_none() {
             return;
         }
         sys::block_sampler_signal();

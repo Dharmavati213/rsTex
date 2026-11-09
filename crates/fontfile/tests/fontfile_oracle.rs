@@ -22,6 +22,11 @@ fn text(b: &[u8]) -> String {
     b.iter().map(|&c| c as char).collect()
 }
 
+/// The digest of `data`, in lower-case hex.
+fn md5_hex(data: &[u8]) -> String {
+    rstex_pdfio::md5::md5(data).iter().map(|b| format!("{b:02x}")).collect()
+}
+
 fn kpse(name: &str) -> Option<String> {
     let o = Command::new("kpsewhich").arg(name).output().ok()?;
     let p = String::from_utf8(o.stdout).ok()?;

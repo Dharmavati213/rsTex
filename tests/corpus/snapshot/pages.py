@@ -864,8 +864,7 @@ def the_closure_file(engine):
 
 
 def no_room_for_the_chain(engine):
-    """A limit on a file's size that the document's outputs stay under, as on a nearly full disk or in a sandbox: the chain stops where it is and the run goes on.  It used to go on looking at what it took to be in the chain, past the end
-    of the file, and SIGBUS ended a run of a document with nothing wrong with it."""
+    """A limit on a file's size that the document's outputs stay under, as on a nearly full disk or in a sandbox: the chain stops where it is and the run goes on."""
     import resource
     w = World(engine, 'room', main='roomy.tex')
     w.settle()
@@ -905,8 +904,7 @@ Page 8 has words.\probe\clearpage Page 9.\probe\pad{80}\probe\clearpage Page 10.
 
 def a_date_of_another_width(engine):
     """The date in the log's first line is a digit narrower on the 4th of a month than on the 14th.  A chain is used on a day of another width than the one it was written on, or than its checkpoint's, and after its record the log has on
-    the disk what a cold run of that day has there.  A narrower date used to make the chain look damaged when nothing of the log had gone to the disk, and so a cold run that wrote the chain again; and a wider one, or a log past its
-    first buffer, came back with a byte more or less on the disk."""
+    the disk what a cold run of that day has there."""
     bad = []
     # (the checkpoint's day, the chain's, the day it is used), as SOURCE_DATE_EPOCH: 14 NOV 2023, 4 DEC, 14 DEC.
     days = (('1700000000', '1700000000', '1701728000'), ('1701728000', '1701728000', '1702592000'), ('1700000000', '1701728000', '1702592000'))
@@ -952,8 +950,7 @@ SYNCTEX_BUSY = r'''\documentclass{article}
 
 def synctex_read_in_the_body(engine):
     """A page record writes nothing of SyncTeX's file to the disk: a run with no records has no member there before the cross-reference table, and plain text only as its buffer fills, and a body can ask.  The run that
-    writes a chain, and one that resumes from a record after an edit, against a cold run, under -synctex=1 and -synctex=-1.  Records used to settle the file, all their members on the disk, and a resume wrote the chain's
-    bytes there at once."""
+    writes a chain, and one that resumes from a record after an edit, against a cold run, under -synctex=1 and -synctex=-1."""
     bad = []
     for flag in ('-synctex=1', '-synctex=-1'):
         w = World(engine, 'synctexbusy', main='busy.tex', extra_args=(flag,))

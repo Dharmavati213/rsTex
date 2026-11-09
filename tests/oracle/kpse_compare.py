@@ -33,7 +33,6 @@ import os
 import random
 import re
 import shutil
-import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor

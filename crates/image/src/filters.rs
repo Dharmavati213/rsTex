@@ -1009,49 +1009,6 @@ mod tests {
         assert!(n > 15000);
     }
 
-    /// Every stream body in the PDFs of `RSTEX_FLATE_DIR` and below, as `flate` and as the reference: run with
-    /// `cargo test -p rstex-image --release -- --ignored flate_on_files`.
-    #[test]
-    #[ignore]
-    fn flate_on_files() {
-        let Ok(dir) = std::env::var("RSTEX_FLATE_DIR") else { return };
-        let mut todo = vec![std::path::PathBuf::from(dir)];
-        let (mut files, mut streams, mut bytes, mut decoded) = (0, 0, 0usize, 0usize);
-        while let Some(d) = todo.pop() {
-            for e in std::fs::read_dir(&d).unwrap().flatten() {
-                let p = e.path();
-                if p.is_dir() {
-                    todo.push(p);
-                    continue;
-                }
-                if p.extension().is_none_or(|x| x != "pdf") {
-                    continue;
-                }
-                let data = std::fs::read(&p).unwrap();
-                files += 1;
-                let mut i = 0;
-                while let Some(k) = data[i..].windows(6).position(|w| w == b"stream") {
-                    let mut a = i + k + 6;
-                    if data.get(a) == Some(&b'\r') {
-                        a += 1;
-                    }
-                    if data.get(a) == Some(&b'\n') {
-                        a += 1;
-                    }
-                    let end = data[a..].windows(9).position(|w| w == b"endstream").map_or(data.len(), |e| a + e);
-                    let body = &data[a..end];
-                    let got = flate(body);
-                    assert_eq!(got, flate_reference(body), "{} at {a}", p.display());
-                    decoded += got.len();
-                    streams += 1;
-                    bytes += body.len();
-                    i = (end + 9).min(data.len());
-                }
-            }
-        }
-        eprintln!("{files} files, {streams} streams, {bytes} bytes, {decoded} decoded");
-    }
-
     /// Past 50 MB at a ratio over 200, xpdf stops before the piece that crossed the line: the same byte here.
     #[test]
     fn flate_stops_a_bomb_where_xpdf_does() {

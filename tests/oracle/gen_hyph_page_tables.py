@@ -11,7 +11,7 @@ Run with python3 -I.  It writes, under crates/engine/testdata/:
                          oracle hyphenates it, found as plain's \\showhyphens finds it.
   page_oracle.tsv        a page: settings and the items of the contribution list, then the \\tracingpages lines the
                          oracle prints for it and the values of \\lastpenalty, \\lastkern, \\lastskip, \\lastnodetype.
-                         No row reaches fire_up: the unit test runs build_page, whose callees up to there are real.
+                         No row reaches fire_up: the unit test runs build_page.
 
   hyph_recon_oracle.tsv  a font's ligature program and a word, hyphenated by an exception before its last letter, then the
                          nodes the oracle has before the discretionary, in its pre_break, and after it.  The font is made by

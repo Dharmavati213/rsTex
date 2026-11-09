@@ -14,7 +14,6 @@ rate shows that the tests really ran as the LaTeX team meant them to, and the mi
 import argparse
 import collections
 import importlib.util
-import json
 import os
 import re
 import subprocess

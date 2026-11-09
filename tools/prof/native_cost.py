@@ -10,7 +10,6 @@ Also the many declines of a body with no \end within reach, at COUNT and four ti
 import argparse
 import os
 import shutil
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

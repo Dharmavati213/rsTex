@@ -759,13 +759,6 @@ def case_common(args, root, chk):
         chk.skip('common', 'tests/until_stable/common.py is not in this tree')
         return
     common = proflib.load_script('until_stable_common', path)
-    chk('common: Lemma\'s environment', common.LEMMA_ENV == bs.LEMMA_ENV, common.LEMMA_ENV)
-    chk('common: Lemma\'s flags', common.LEMMA_FLAGS == bs.LEMMA_FLAGS, common.LEMMA_FLAGS)
-    chk('common: what rstex says of a program', common.TOOL_LINE.pattern == bs.TOOL_LINE.pattern)
-    chk('common: what rstex says of its passes', common.PASSES_LINE.pattern == bs.PASSES_LINE.pattern)
-    chk('common: what is not compared', common.NOT_COMPARED == bs.NOT_COMPARED, common.NOT_COMPARED)
-    chk('common: the status that names a program', common.STATUS_TOOL == bs.STATUS_TOOL, common.STATUS_TOOL)
-    chk('common: what a mirror leaves out', common.OUTPUTS == bs.OUTPUTS)
     # A mirror of a document made here, by both.
     base = os.path.join(root, 'mirror-common')
     orig = os.path.join(base, 'orig')

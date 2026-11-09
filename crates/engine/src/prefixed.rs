@@ -1211,7 +1211,7 @@ impl Tex {
     }
 }
 
-/// Only what runs with real callees in this tree: the procedures that read no number, since the scanners are other modules'.
+/// The procedures that read no number.
 /// The rest is in tests/integration/prefixed/.  `testdata/prefixed_oracle.tsv` comes from tests/oracle/gen_prefixed_tables.py.
 #[cfg(test)]
 mod tests {

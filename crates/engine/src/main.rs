@@ -1937,9 +1937,6 @@ impl Tex {
         }
         self.xord_changed();
     }
-
-    /// External: debug only: nothing reaches it, since `debug_help` is not compiled.
-    pub fn dump_core(&mut self) {}
 }
 
 #[cfg(test)]

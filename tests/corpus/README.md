@@ -232,9 +232,6 @@ python3 -I tests/corpus/gen/shrink.py --engine target/release/rstex --id coverag
 
 That is delta debugging over lines, with both sides invoked as here, while the normalized logs or exit status still differ. `--contains TEXT` and `--same-line` hold it on one failure when a case has several.
 
-**What a candidate cannot pass by design** stays in the denominator: PNG and PDF inclusion until they arrive, `letterspacefont` until VF, TrueType and OTF. The manifest's
-`exclusions` say so, and every report prints them.
-
 ## Regression tests, in l3build's form
 
 `manifests/public.json` runs the LaTeX team's own suites: every `.lvt`, `.pvt` and `.lit` of `latex3/latex2e`, `latex3/latex3`, and of hyperref, pgf, beamer and siunitx, at
@@ -632,11 +629,11 @@ python3 -I tests/corpus/run.py compare --engine /usr/bin/pdflatex -j 8 --run-id 
 
 That is three runs, and all three are recorded under `target/corpus/runs/`. `baseline` gave 13,954 / 13,965 in each mode. The other 11 entries, all with warnings naming the program, were false differences of this runner: plain entries run the oracle as `/usr/bin/pdftex` and this candidate as `/usr/bin/pdflatex`, so the warnings wrap at other columns, and the normal form got one that ends at column 79 wrong. Fixed, with a self-check over names of 32 lengths. `baseline-retry` runs those 11 and gives 11 / 11 in each mode. `baseline-messages` runs all 243 entries whose log has such a message under the final normal form, and gives 240 / 240 in each mode, with 3 oracle-fails. The other entries were not run again after that fix, which touches only those lines. `python3 -I tests/corpus/table.py --compare baseline --extra-compare baseline-retry --extra-compare baseline-messages` prints the table.
 
-pdflatex against itself cannot show a false difference that needs another engine name or banner. So rstex's M4 build also went through the standard tier, last pass, no raster (`target/corpus/verify/runs/rstex-standard*`), and that found three more in this runner, all fixed: a qpdf complaint on an included PDF held against the candidate at L6, the banner key with an underscore, and the banner inside an object stream. What is left there is 1,065 / 1,094, and the 29 are the engine's or its wrapper's: `, glue set 0.0` in box dumps, `changing` for `reassigning` at 2^31 - 1, a 32768 pt limit, and `-fmt=latex`, which the wrapper does not map. Since then the box dumps agree and the wrapper maps it, and of those only the two at 2^31 are left, on the accepted list.
-
 What the identical verdicts rest on:
 
 | Level, last-pass results | Equal | Not judged |
+pdflatex against itself cannot show a false difference that needs another engine name or banner. So rstex's M4 build also went through the standard tier, last pass, no raster (`target/corpus/verify/runs/rstex-standard*`), and that found three more in this runner, all fixed: a qpdf complaint on an included PDF held against the candidate at L6, the banner key with an underscore, and the banner inside an object stream. What is left there is 1,065 / 1,094, and the 29 are the engine's or its wrapper's: `, glue set 0.0` in box dumps, `changing` for `reassigning` at 2^31 - 1, a 32768 pt limit, and `-fmt=latex`, which the wrapper does not map. Since then the box dumps agree and the wrapper maps it, and of those only the two at 2^31 are left, on the accepted list.
+
 |---|---:|---|
 | L0, the log, exit status; L4, L5 and L7 where there is a PDF | every comparable entry | |
 | L2 box logs | 13,933 | 13 where the oracle's trace moves |

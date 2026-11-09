@@ -61,7 +61,7 @@ class Macro:
 
 
 class Proc:
-    __slots__ = ("name", "kind", "sec", "params", "result", "header", "forward", "body_sec")
+    __slots__ = ("name", "kind", "sec", "params", "result", "header", "forward")
 
     def __init__(self, name, kind, sec, params, result, header, forward):
         self.name = name
@@ -71,7 +71,6 @@ class Proc:
         self.result = result
         self.header = header
         self.forward = forward
-        self.body_sec = sec
 
 
 def strip_comments(s):
@@ -355,14 +354,14 @@ class Web:
             names = {}
             occurrences = []
             for s in self.sections[1:]:
-                for part, is_tex in ((s.text[2:], False),):
-                    for m in re.finditer(r"@<(.*?)@>", part, re.S):
-                        nm = re.sub(r"\s+", " ", m.group(1)).strip()
-                        after = part[m.end() :]
-                        is_def = bool(re.match(r"\s*=(?!=)", after))
-                        occurrences.append((nm, s.num, is_def))
-                        if not nm.endswith("..."):
-                            names.setdefault(nm, dict(defs=[], uses=[]))
+                part = s.text[2:]
+                for m in re.finditer(r"@<(.*?)@>", part, re.S):
+                    nm = re.sub(r"\s+", " ", m.group(1)).strip()
+                    after = part[m.end() :]
+                    is_def = bool(re.match(r"\s*=(?!=)", after))
+                    occurrences.append((nm, s.num, is_def))
+                    if not nm.endswith("..."):
+                        names.setdefault(nm, dict(defs=[], uses=[]))
             full = sorted(names)
             import bisect
 
@@ -542,10 +541,9 @@ def tangled(w, name):
     body = text[start:end] if start is not None else text
     out = []
 
-    def expand(t, indent, seen):
+    def expand(t):
         pos = 0
         for m in MODREF_RE.finditer(t):
-            after = t[m.end():m.end() + 3]
             out.append(t[pos:m.start()])
             pos = m.end()
             nm = _module_full_name(w, m.group(1))
@@ -558,12 +556,12 @@ def tangled(w, name):
                 if _section_is_root(w, ds):
                     continue
                 out.append("\n{§%d %s}\n" % (d, nm[:60]))
-                expand(ds.pascal.strip(), indent + 1, seen)
+                expand(ds.pascal.strip())
                 out.append("\n{end §%d}\n" % d)
         out.append(t[pos:])
 
     out.append("{§%d %s}\n" % (p.sec, name))
-    expand(body, 0, set())
+    expand(body)
     return "".join(out)
 
 
@@ -741,7 +739,7 @@ def main():
     if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
         print(__doc__)
         sys.exit(2)
-    w = Web(os.environ.get("RSTEX_WEB", DEFAULT_WEB))
+    w = Web()
     CMDS[sys.argv[1]](w, sys.argv[2:])
 
 

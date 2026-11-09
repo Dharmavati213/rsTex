@@ -5,6 +5,7 @@
 #![cfg_attr(not(test), no_main)]
 #![deny(unsafe_code)]
 
+#[cfg(not(test))]
 use rstex_engine::platform;
 
 /// What `crates/rstex/build.rs` has glibc's static start-up call instead of `_dl_get_origin`, a `readlink` of `/proc/self/exe` and the run's first look at

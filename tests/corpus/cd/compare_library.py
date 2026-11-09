@@ -22,14 +22,13 @@ changed are not compiled again.
 `eligibility` only parses every diagram of the manifests, whether the oracle compiled it or not, and counts what is declined and why: for what a policy costs, and what the document's settings
 cost (--settings gives them, as `instrument` found them).
 
-Policy is AllowAll here (spec section 1 of the report): this measures what the parser and layout do, so a macro that hides an arrow shows up as a diagram with too few arrows,
+Policy is AllowAll here (docs/TIKZCD-SPEC.md section 1): this measures what the parser and layout do, so a macro that hides an arrow shows up as a diagram with too few arrows,
 to be classified and not fixed.  For a private document (ids cd-local/) this prints counts and ids only.
 """
 import argparse
 import collections
 import concurrent.futures as cf
 import importlib.util
-import json
 import os
 import re
 import shutil

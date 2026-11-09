@@ -1,6 +1,6 @@
 //! The grammar of spec sections 3 and 5: what is recognised, what it means, and what is refused.
 
-use commute::{AllowAll, BoxDim, Diagram, FontParams, Item, LabelFont, Policy, Seg, StandardLatex, Unsupported, find_environment};
+use commute::{AllowAll, BoxDim, Diagram, FontParams, Item, LabelFont, Policy, Seg, StandardLatex, Unsupported};
 
 const F: FontParams = FontParams::ARTICLE_10PT;
 
@@ -430,17 +430,6 @@ fn layout_needs_a_diagram_and_enough_boxes() {
     assert_eq!(d.layout(&[BoxDim::default()], &[]).unwrap_err().reason, "fewer measured boxes than cells and labels");
     d.parse(b"", b"A \\arrow[foo] & B", F, &StandardLatex).unwrap_err();
     assert_eq!(d.layout(&[BoxDim::default(); 2], &[]).unwrap_err().reason, "layout without a parsed diagram");
-}
-
-#[test]
-fn environments_can_be_found_in_text() {
-    let src = br"x \begin{tikzcd} A \end{tikzcd} y \begin{tikzcd}[sep=small] B \end{tikzcd} \begin{tikzcd} C";
-    let (a, b) = find_environment(src, 0).unwrap();
-    assert_eq!(&src[a..b], b" A ");
-    let (c, d) = find_environment(src, commute::after_environment(b)).unwrap();
-    assert_eq!(&src[c..d], b"[sep=small] B ");
-    assert_eq!(find_environment(src, commute::after_environment(d)), None);
-    assert_eq!(find_environment(b"", 5), None);
 }
 
 fn with_preset(preset: &str, env: &str) -> Result<Diagram, &'static str> {

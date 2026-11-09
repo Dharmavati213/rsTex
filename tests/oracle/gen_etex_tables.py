@@ -11,7 +11,7 @@ Run with python3 -I.  It writes, under crates/engine/testdata/:
                            each followed by a | that \\endlinechar put there
 
 Each case runs in `pdftex -ini -etex`, in a temporary directory.  The tests read the same input and call the Rust
-routines directly, since scan_int and prefixed_command are in other modules.
+routines directly.
 
 Format: one case per line, fields separated by a tab.  In etex_sa_oracle.tsv operations are separated by `;`,
 their arguments by a space, and a newline in the expected output is `|`.

@@ -30,7 +30,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 from common import proflib  # noqa: E402
 
-RUN_NUMBER = re.compile(rb"^Run number \d+ of rule '(?:pdf)?latex", re.M)
 RULE_RUNS = re.compile(rb"^Latexmk: applying rule '(\w+)", re.M)
 
 

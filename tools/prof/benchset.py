@@ -15,7 +15,7 @@ measured again, and a line cut short is dropped.  A row from another binary unde
 
 **The run that is compared.**  Argv, environment, side files and the oracle's own files come from tests/corpus/run.py and tools/prof/proflib.py by import.  Counters are proflib's, user mode, from the exec on, with threads and children.  Each run goes through tools/prof/benchrun.py, which
 is small, for a reason its first lines give: ru_maxrss from a larger parent is that parent's size.  `first`, `edit` and `pixels` run in a mirror of the document with Lemma's environment and flags, as tests/until_stable/compare.py and
-session.py do; those files are not on every branch this runs from, so what this needs of them is here, and tests/bench/selfcheck.py holds that it stays the same where they are.
+session.py do, with the constants of tests/until_stable/common.py; the mirror is a copy of that file's, and tests/bench/selfcheck.py holds that the two leave out the same files.
 
 **Counted and timed.**  `counted` runs documents in parallel with -j, as instructions do not care.  `timed` is serial on the core --cpu, as tools/prof/bench.py pins it, in rounds with a control: each side in turn in an order that turns round each
 round, so a warming cache favours nobody.  A row is marked `clock_ok` only if it was timed, the load before and after it was at most --max-load, the governor is `performance`, and the core's sibling was idle: otherwise its instructions stand, and report.py
@@ -65,15 +65,10 @@ edits = census.edits
 baselines = proflib.load_script('bench_baselines', os.path.join(BENCH, 'baselines.py'))
 report = proflib.load_script('bench_report_tool', os.path.join(BENCH, 'report.py'))
 
-# As tests/until_stable/common.py has them: what crates/lemma-build/src/request.rs puts in the environment and on the command line, and how `rstex --until-stable` speaks.
-LEMMA_ENV = {'max_print_line': '10000', 'error_line': '254', 'half_error_line': '238'}
-LEMMA_FLAGS = ['-synctex=1', '-interaction=nonstopmode', '-file-line-error', '-recorder']
-TOOL_LINE = re.compile(rb'^rstex: until-stable: tool=(\S+) reason=(\S+) file=(.*)$', re.M)
-PASSES_LINE = re.compile(rb'^rstex: until-stable: passes=(\d+) result=(\w+)', re.M)
-NOT_COMPARED = ('.fdb_latexmk', '.rstex-tools', '.blg', '.ilg')
-STATUS_TOOL = 10
-OUTPUTS = ('.aux', '.log', '.toc', '.lof', '.lot', '.out', '.fls', '.fdb_latexmk', '.synctex.gz', '.rstex-tools')
-RULE_RUNS = re.compile(rb"^Latexmk: applying rule '(\w+)", re.M)
+# tests/until_stable/common.py's: what crates/lemma-build/src/request.rs puts in the environment and on the command line, and how `rstex --until-stable` speaks.
+common = proflib.load_script('bench_until_stable_common', os.path.join(REPO, 'tests', 'until_stable', 'common.py'))
+LEMMA_ENV, LEMMA_FLAGS, TOOL_LINE, PASSES_LINE = common.LEMMA_ENV, common.LEMMA_FLAGS, common.TOOL_LINE, common.PASSES_LINE
+NOT_COMPARED, STATUS_TOOL, OUTPUTS, RULE_RUNS = common.NOT_COMPARED, common.STATUS_TOOL, common.OUTPUTS, common.RULE_RUNS
 # `first` is a compile from the command line: no SyncTeX, which a resume refuses, and no shell escape, as for all the corpus.
 FIRST_FLAGS = ['-interaction=nonstopmode', '-file-line-error', '-recorder', '-no-shell-escape']
 TRACE_RESTORED = re.compile(rb'^rstex: checkpoint: restored$', re.M)
@@ -665,7 +660,6 @@ class DocJob(Job):
         self.w = c.new_workdir(self.meta.get('workdir_path'))
         self.out = os.path.join(self.w, 'o')
         self.cwd_before = c.names_of(self.e['cwd'])
-        self.seed_note = None
         try:
             group_done = False
             for name in names:
@@ -1719,7 +1713,6 @@ class Global:
         self.sink = None
         self.machine = f'{os.uname().nodename}, {cpu_model()}'
         self.governor = governor(0)
-        self.refused_ids = None
         self.rstex, self.tex = [], []
         self.commute = None
         self.arch = None

@@ -198,7 +198,6 @@ impl<T: Cell32, const N: usize> A<T, N> {
 }
 
 impl<T, const N: usize> A<T, N> {
-    pub const CAP: usize = N;
     #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
         &self.0
@@ -338,17 +337,6 @@ impl<T, const LO: i32, const N: usize> IndexMut<i32> for AO<T, LO, N> {
         unsafe {
             self.0.get_unchecked_mut(k)
         }
-    }
-}
-
-impl<T: Cell32, const LO: i32, const N: usize> AO<T, LO, N> {
-    #[inline(always)]
-    pub fn at(&self, i: i32) -> i32 {
-        self[i].to_i32()
-    }
-    #[inline(always)]
-    pub fn put(&mut self, i: i32, v: i32) {
-        self[i] = T::from_i32(v);
     }
 }
 

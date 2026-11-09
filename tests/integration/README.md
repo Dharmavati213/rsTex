@@ -1,9 +1,8 @@
 # Integration cases
 
-Small TeX documents, one per feature or per WEB branch, that are compiled by the oracle and by rstex once the engine runs.
+Small TeX documents, one per feature or per WEB branch, that are compiled by the oracle and by rstex.
 Nothing is committed but the documents: the oracle is on the machine, so its log and PDF are made fresh for each compare.
-This is where a module's code gets run for the first time when its callees were stubs while it was written, so write the
-cases as you port and aim them at the branches you could not run.
+Aim a new case at a branch no other case reaches.
 
     tests/integration/<module>/<name>.tex
 

@@ -285,19 +285,6 @@ impl Tex {
         self.host.world.recorder_change_filename(new_name);
     }
 
-    /// External: src-specials are dropped
-    pub fn make_src_special(&mut self, _srcfilename: i32, _lineno: i32) -> i32 {
-        S_EMPTY
-    }
-
-    /// External: src-specials are dropped
-    pub fn remember_source_info(&mut self, _srcfilename: i32, _lineno: i32) {}
-
-    /// External: src-specials are dropped
-    pub fn is_new_source(&mut self, _srcfilename: i32, _lineno: i32) -> bool {
-        false
-    }
-
     /// External: texmfmp.c `getjobname`: `-jobname`, which `maketexstring` turns into a new string each time,
     /// or else the name given.
     pub fn get_job_name(&mut self, name: i32) -> i32 {
@@ -321,9 +308,6 @@ impl Tex {
         self.host.c_job_name = Some(job);
         self.make_string()
     }
-
-    /// External: IPC is dropped: no-op
-    pub fn ipc_page(&mut self, _is_eof: i32) {}
 }
 
 /// What `calledit` has made of the value of `TEXEDIT` by the time it runs it.

@@ -22,7 +22,6 @@ import concurrent.futures
 import gzip
 import os
 import shutil
-import subprocess
 import sys
 import time
 

@@ -753,7 +753,6 @@ def main():
     bad = []
     fams = {}
     stats = {"objects": 0, "bytes": 0, "failures": {}, "crashes": 0, "fonts": 0}
-    summary = []
 
     def account(k, n, p, im, orc, sim, probs):
         t = tally.setdefault(k, [0, 0])
@@ -796,9 +795,7 @@ def main():
     def report(title):
         print(title)
         for k, (good, total) in sorted(tally.items()):
-            line = "  %-10s %d/%d" % (k, good, total)
-            print(line)
-            summary.append(line)
+            print("  %-10s %d/%d" % (k, good, total))
         for n, p, im, probs in bad[: args.show]:
             print("--- %s [%s] %s" % (n, p, " ".join(im)))
             for q in probs[:3]:
@@ -832,7 +829,6 @@ def main():
         tally.clear()
         bad.clear()
         stats.update({"objects": 0, "bytes": 0, "failures": {}, "crashes": 0, "fonts": 0, "known": 0, "padding": 0})
-        summary.clear()
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as ex:
             futs = [ex.submit(run_external, c, fmo, fm_dir) for c in ext]
             more = []
@@ -851,12 +847,6 @@ def main():
                 source = "TL " if n.startswith("TL:") else "tool "
                 account(source + "PDF more", n, p, im, orc, sim, probs)
         report("external inputs:")
-        if args.write:
-            with open(os.path.join(TESTDATA, "image_oracle_external.txt"), "w", newline="\n") as f:
-                f.write("Agreement with pdfTeX 1.40.29 on real files, from tests/oracle/gen_image_tables.py --external:\n")
-                f.write("the images in TeX Live's tree and files made by cjpeg, ImageMagick, Ghostscript, pdflatex, qpdf.\n")
-                f.write("Not checked by cargo test, which has none of these inputs.\n")
-                f.write("\n".join(summary) + "\n")
     return 1 if bad else 0
 
 

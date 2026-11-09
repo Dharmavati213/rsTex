@@ -1010,9 +1010,6 @@ class Diagram:
         for (r, c, opts) in s.arrow_list:
             s.draw_arrow(r, c, opts, ltags)
 
-    def cellname(s, r, c):
-        return s.nodes.get((r, c))
-
     def resolve_end(s, spec, r, c):
         spec = spec.strip()
         m = re.fullmatch(r'(\d+)-(\d+)', spec)

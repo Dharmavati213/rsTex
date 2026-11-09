@@ -12,7 +12,7 @@ and for each the option off and on.  --base adds the same with SyncTeX off for a
 
 The counters are user-mode instructions and cycles from exec to exit, twice over: of the first thread alone, which with glibc is the engine's (DESIGN section 8), and of it and the threads it starts, as bench.py counts.  So what the
 deflate workers do shows in the second and not in the first.  Instructions first: tools/prof/bench.py says why.  --rounds N adds N rounds of paired runs in turn, the order changing each round, of off, on and
-off again, whose medians of paired ratios are the cycles to believe, with off against off as the control: N of 40 or more, as PLAN section 8 says.
+off again, whose medians of paired ratios are the cycles to believe, with off against off as the control: N of 40 or more.
 
 Only ids and numbers are printed, and everything a run writes stays under target/.
 """

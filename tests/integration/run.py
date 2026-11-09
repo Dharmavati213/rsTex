@@ -202,7 +202,7 @@ NOT_COMPARED = {
 FORMAT_MASKS = [
     ("format-ident", r"^(This is pdfTeX, Version \S+ \(VERSION\)) \(preloaded format=\S+(?: \d{4}\.\d+\.\d+)?\)", r"\1 (preloaded format=FMT)",
      "the format's name and build date on the banner: fmtutil made the oracle's on another day; the terminal prints the"
-     " name as -fmt gave it, a path here; and the name is the job's, which rstex takes wrongly while it ignores -jobname"),
+     " name as -fmt gave it, a path here"),
 ]
 FORMAT_MASKS = [(n, re.compile(p), r, why) for n, p, r, why in FORMAT_MASKS]
 
@@ -222,7 +222,7 @@ OUTPUT_WRITTEN = re.compile(r'^(Output written on ("?)(.*\.pdf)\2 \(\d+ pages?, 
 XREF_TRAILER_KEYS = {"/ID", "/Length", "/W", "/Index", "/Filter", "/DecodeParms", "/Type"}
 
 # ----------------------------------------------------------------------------------------------------------------------
-# What one line of "% mode:" cannot say.  Taken over from the old image/run_pairs.py.
+# What one line of "% mode:" cannot say.
 # ----------------------------------------------------------------------------------------------------------------------
 PAIRS = [
     ("pair_basic", "image/pair_basic.load"),

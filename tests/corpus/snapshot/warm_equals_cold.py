@@ -186,7 +186,7 @@ if rec['restored']:
     # A chain, and a record from it.
     last = state(d)
     again(d, before, last)
-    p = run([], args, dict(chain_env, RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_PAGE_CK=os.environ.get('RSTEX_TEST_PAGE_CK', '2')))
+    p = run([], args, dict(chain_env, RSTEX_PAGE_HASH='1', RSTEX_DEFLATE_WORKERS='0', RSTEX_PAGE_CK='2'))
     last = state(d)
     rec['chain_differs'] = differs(a, last, cold, p)
     rec['cache_chain'] = cache_said(p)
@@ -205,7 +205,7 @@ if rec['restored']:
         rec['verify_differs'] = int(v[0].group(2)) if v else 0
         rec['verify_lines'] = [l for l in p.stderr.decode('latin-1').split('\n') if 'differ' in l][:6]
         again(d, before, last)
-        p = run([], args, dict(chain_env, RSTEX_RESUME=str(k), RSTEX_PAGE_CK=os.environ.get('RSTEX_TEST_PAGE_CK', '2')))
+        p = run([], args, dict(chain_env, RSTEX_RESUME=str(k), RSTEX_PAGE_CK='2'))
         last = state(d)
         rec['going_on_differs'] = differs(a, last, cold, p)
         rec['cache_going_on'] = cache_said(p)

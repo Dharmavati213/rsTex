@@ -81,23 +81,3 @@ pub enum BoxRef {
     /// Index into [`Diagram::labels`].
     Label(u32),
 }
-
-/// Find the next `\begin{tikzcd}` at or after `from`.  Returns the byte range between it and its `\end{tikzcd}`, for
-/// [`Diagram::parse`].  This is a plain text search for tools; inside the compiler the engine scans tokens.
-pub fn find_environment(src: &[u8], from: usize) -> Option<(usize, usize)> {
-    const BEGIN: &[u8] = b"\\begin{tikzcd}";
-    const END: &[u8] = b"\\end{tikzcd}";
-    let start = find(src, BEGIN, from)? + BEGIN.len();
-    let end = find(src, END, start)?;
-    Some((start, end))
-}
-
-/// Skip to the end of a `\begin{tikzcd}...\end{tikzcd}` found with [`find_environment`].
-pub fn after_environment(end: usize) -> usize {
-    end + b"\\end{tikzcd}".len()
-}
-
-fn find(hay: &[u8], needle: &[u8], from: usize) -> Option<usize> {
-    let tail = hay.get(from..)?;
-    tail.windows(needle.len()).position(|w| w == needle).map(|i| i + from)
-}

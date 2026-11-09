@@ -1739,11 +1739,6 @@ impl Tex {
         raw_alloc(Host::new())
     }
 
-    /// Allocates with a given host, for tests and tools.
-    pub fn alloc_with(host: Host) -> &'static mut Tex {
-        raw_alloc(host)
-    }
-
     /// Ends the life of an image from `alloc`, for tests.
     pub fn dealloc(t: &'static mut Tex) {
         drop_in_place_of(&mut t.host);
