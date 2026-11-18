@@ -218,8 +218,8 @@ impl CodeSet {
     }
 }
 
-/// `fd->gl_tree`: a set of glyph names in `strcmp` order, kept in one buffer.
-#[derive(Clone, Debug, Default)]
+/// `fd->gl_tree`: a set of glyph names in `strcmp` order, kept in one buffer.  Two that are equal hold the same names; two with the same names may differ, if they came to them in another order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GlyphSet {
     pool: Vec<u8>,
     items: Vec<(u32, u32)>,

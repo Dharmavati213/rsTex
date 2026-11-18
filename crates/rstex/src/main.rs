@@ -30,6 +30,7 @@ extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
     platform::process_init();
     let args: Vec<Vec<u8>> = std::env::args_os().map(|a| platform::path_to_bytes(std::path::Path::new(&a))).collect();
     let code = platform::run_on_stack(rstex_driver::ENGINE_STACK, move || rstex_driver::run(args, None));
+    rstex_kpse::keep_dirs();
     rstex_engine::prof_finish!();
     std::process::exit(code);
 }
