@@ -372,6 +372,7 @@ extern "C" fn main(_argc: i32, _argv: *const *const std::ffi::c_char) -> i32 {
         }
         run(raw.iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect())
     });
+    rstex_kpse::keep_dirs();
     rstex_engine::prof_finish!();
     std::process::exit(code);
 }

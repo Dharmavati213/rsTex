@@ -1485,6 +1485,8 @@ impl Tex {
         // What the run wrote and closed, by the name: a later read of it gets those bytes again, and has to have got them in the first place.  A run beside it, in the same directory, can see to it that it did not.
         let mut own: Vec<(&[u8], OwnFile)> = meta.closed.iter().enumerate().map(|(j, c)| (path_norm(&c.0), OwnFile::Preamble(j))).collect();
         let mut open_at_preamble: Vec<(&[u8], &[u8])> = meta.outputs.iter().map(|o| (path_norm(&o.1), &o.2[..])).collect();
+        // As in `checkpoint_validate`: the records' lookups ask what the world is like now, and nothing is written until they are answered.
+        let now_only = rstex_kpse::one_moment();
         let mut asked: HashMap<(Vec<u8>, i32, bool), Option<Vec<u8>>> = HashMap::new();
         let mut read: HashMap<(Vec<u8>, u64), bool> = HashMap::new();
         let mut hashed_to: HashMap<(i32, u64), usize> = HashMap::new();
@@ -1577,6 +1579,7 @@ impl Tex {
             }
             good = r + 1;
         }
+        drop(now_only);
         if force {
             good = limit;
         }

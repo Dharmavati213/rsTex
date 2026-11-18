@@ -774,6 +774,12 @@ impl World {
         self.recorder_record_input(path);
     }
 
+    /// The contents of a file for a thread that works ahead of the engine's, which has no world: they count as nothing read, and what is made of them is used
+    /// only once the engine has read the file itself, in its turn, and found these bytes: `pdffont::T1Ahead`.
+    pub fn read_ahead(path: &[u8]) -> Option<Vec<u8>> {
+        std::fs::read(path_of(path)).ok()
+    }
+
     /// The contents of a file that has already counted as read.
     pub fn read_quietly(&mut self, path: &[u8]) -> Option<Vec<u8>> {
         std::fs::read(path_of(path)).ok()
@@ -952,6 +958,8 @@ impl World {
         panic!("exit({code})");
         #[cfg(not(test))]
         {
+            // What the lookups learned of the trees on the disk is for the next run too.
+            rstex_kpse::keep_dirs();
             crate::prof_finish!();
             std::process::exit(code)
         }

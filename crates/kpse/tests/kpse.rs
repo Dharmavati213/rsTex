@@ -662,3 +662,311 @@ fn ls_r_with_nothing_in_it_does_not_count() {
     assert_eq!(s(&k.find_file(b"f.tex", KPSE_TEX_FORMAT, false)), Some(format!("{t}/sub/f.tex")));
     assert!(k.take_warnings().iter().any(|w| w.ends_with(b"No usable entries in ls-R")));
 }
+
+/// Waits until the stamps of what was just made are old enough to keep a list by: 20 ms where they have a fraction of a second, otherwise 2 s.
+#[cfg(unix)]
+fn settle(dir: &Path) {
+    use std::os::unix::fs::MetadataExt;
+    let coarse = fs::metadata(dir).unwrap().mtime_nsec() == 0;
+    std::thread::sleep(std::time::Duration::from_millis(if coarse { 2100 } else { 60 }));
+}
+
+/// A tree on the disk gives the same answers by what its directories are known to hold as by asking the disk for every name, which is what C does: for names that
+/// are there, that are not, that differ in case, that lie in a subdirectory or are odd, with one answer and with all, while the tree changes under both.
+#[cfg(unix)]
+#[test]
+fn lists_of_directories_answer_as_the_disk_does() {
+    let d = scratch("lists");
+    let tree = d.join("tree");
+    let files = [
+        "a/one.tex", "a/Two.TEX", "a/deep/three.tex", "a/deep/one.tex", "b/one.tex", "b/four.sty", "c/.hidden/five.tex", "c/six.tex", "c/sub/x/seven.tex", "top.tex",
+        "c/odd name.tex", "c/tilde~1.tex", "c/dot.", "b/na\u{ef}ve.tex", "e/plain.tex", "e/CaSe.tex", "e/case.TEX", "post/deep/eight.tex", "f/post/nine.tex",
+    ];
+    for f in files {
+        put(&tree, f, b"x");
+    }
+    std::os::unix::fs::symlink(tree.join("a/deep"), tree.join("b/link")).unwrap();
+    std::os::unix::fs::symlink(tree.join("top.tex"), tree.join("e/alias.tex")).unwrap();
+    std::os::unix::fs::symlink(tree.join("nowhere"), tree.join("e/dangling.tex")).unwrap();
+    let t = String::from_utf8(b(&tree)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {t}/e;{t}//;{t}/c;{t}//post;{t}/missing//\ntexmf_casefold_search = 1\n").as_bytes());
+    let names: Vec<&[u8]> = vec![
+        b"one.tex", b"one", b"two.tex", b"Two.TEX", b"TWO.TEX", b"three.tex", b"deep/three.tex", b"DEEP/three.tex", b"deep/THREE.tex", b"four.sty", b"five.tex",
+        b"six.tex", b"seven.tex", b"x/seven.tex", b"sub/x/seven.tex", b"top.tex", b"TOP.TEX", b"odd name.tex", b"ODD NAME.tex", b"tilde~1.tex", b"TILDE~1.TEX", b"dot.",
+        b"DOT.", b"na\xc3\xafve.tex", b"NA\xc3\xafVE.TEX", b"plain.tex", b"case.tex", b"CASE.TEX", b"CaSe.tex", b"eight.tex", b"nine.tex", b"alias.tex", b"ALIAS.tex",
+        b"dangling.tex", b"nothing.tex", b"nothing", b"a", b"deep", b"link/three.tex", b"", b"deep/", b"..", b"../tree/top.tex", b"sub//x/seven.tex", b"new.tex",
+        b"NEW.tex", b"late/new.tex", b"gone.tex", b"moved.tex",
+    ];
+    let ask = |k: &mut Kpse| {
+        let mut out = Vec::new();
+        for name in &names {
+            for must in [false, true] {
+                out.push((String::from_utf8_lossy(name).into_owned(), must, k.find_file_generic(name, KPSE_TEX_FORMAT, must, false), k.find_file_generic(name, KPSE_TEX_FORMAT, must, true)));
+            }
+        }
+        out
+    };
+    let mut with = kpse(&d.join("cnf"), &[]);
+    let mut without = kpse(&d.join("cnf"), &[]);
+    without.set_dir_lists(false);
+    let both = |with: &mut Kpse, without: &mut Kpse, when: &str| {
+        let (a, z) = (ask(with), ask(without));
+        for (x, y) in a.iter().zip(&z) {
+            assert_eq!(x, y, "{when}");
+        }
+    };
+    // The tree is a moment old: nothing is kept yet, and then it is.
+    both(&mut with, &mut without, "new");
+    settle(&tree);
+    both(&mut with, &mut without, "settled");
+    let (before, before_without) = (with.disk_looks(), without.disk_looks());
+    both(&mut with, &mut without, "again");
+    let (looks, looks_without) = (with.disk_looks() - before, without.disk_looks() - before_without);
+    // Half of these names are in the tree, in some case, and those are asked of the disk as before.
+    assert!(looks * 2 < looks_without, "{looks} looks at the disk by the lists, {looks_without} without");
+    // A file comes, one goes, one moves, one changes its case, and a directory can no longer be read: at once, when no list is good, and later.
+    put(&tree, "a/new.tex", b"");
+    both(&mut with, &mut without, "a file came");
+    put(&tree, "late/new.tex", b"");
+    fs::remove_file(tree.join("b/four.sty")).unwrap();
+    fs::rename(tree.join("c/six.tex"), tree.join("a/moved.tex")).unwrap();
+    fs::rename(tree.join("e/plain.tex"), tree.join("e/PLAIN.tex")).unwrap();
+    both(&mut with, &mut without, "files went and moved");
+    settle(&tree);
+    both(&mut with, &mut without, "files went and moved, settled");
+    set_mode(&tree.join("a/deep"), 0o000);
+    both(&mut with, &mut without, "a directory closed");
+    settle(&tree);
+    both(&mut with, &mut without, "a directory closed, settled");
+    set_mode(&tree.join("a/deep"), 0o755);
+    settle(&tree);
+    both(&mut with, &mut without, "and open again");
+    fs::remove_dir_all(tree.join("c")).unwrap();
+    both(&mut with, &mut without, "a directory went");
+    settle(&tree);
+    both(&mut with, &mut without, "a directory went, settled");
+    put(&tree, "c/six.tex", b"");
+    settle(&tree);
+    both(&mut with, &mut without, "and came back");
+    // An instance that starts on the tree as it now is agrees with both, where the order of the directories allows: each of the two has moved its own.
+    let mut fresh = kpse(&d.join("cnf"), &[]);
+    let mut fresh_without = kpse(&d.join("cnf"), &[]);
+    fresh_without.set_dir_lists(false);
+    both(&mut fresh, &mut fresh_without, "fresh");
+}
+
+/// What a miss costs in a tree on the disk: a look at each directory, and within one moment nothing more.
+#[cfg(unix)]
+#[test]
+fn a_miss_looks_at_each_directory_once_in_a_moment() {
+    let d = scratch("moment");
+    let tree = d.join("tree");
+    for i in 0..20 {
+        put(&tree, &format!("d{i}/f{i}.tex"), b"");
+    }
+    let t = String::from_utf8(b(&tree)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {t}//\ntexmf_casefold_search = 1\n").as_bytes());
+    settle(&tree);
+    let mut k = kpse(&d.join("cnf"), &[]);
+    assert_eq!(s(&k.find_file(b"f7.tex", KPSE_TEX_FORMAT, true)), Some(format!("{t}/d7/f7.tex")));
+    let scans = k.dir_scans();
+    let before = k.disk_looks();
+    assert_eq!(k.find_file(b"nothing.cfg", KPSE_TEX_FORMAT, true), None);
+    // The tree's own directory and its 20: C asks each for `nothing.cfg.tex` and `nothing.cfg`, and then for its list, twice.
+    let one = k.disk_looks() - before;
+    assert_eq!(one, 21);
+    k.begin_moment();
+    let before = k.disk_looks();
+    for name in [&b"nothing.cfg"[..], b"other.cfg", b"third.sty"] {
+        assert_eq!(k.find_file(name, KPSE_TEX_FORMAT, true), None);
+    }
+    assert_eq!(k.disk_looks() - before, 21);
+    // A file that comes in the moment is one that came just after it.
+    put(&tree, "d3/other.cfg", b"");
+    assert_eq!(k.find_file(b"other.cfg", KPSE_TEX_FORMAT, true), None);
+    k.end_moment();
+    assert_eq!(s(&k.find_file(b"other.cfg", KPSE_TEX_FORMAT, true)), Some(format!("{t}/d3/other.cfg")));
+    assert_eq!(k.dir_scans(), scans, "no directory was listed again: the one that changed is too young to keep a list by");
+}
+
+/// The lists of a tree's directories are kept for the next run, which then reads no directory, and sees what has changed since all the same.
+#[cfg(target_os = "linux")]
+#[test]
+fn lists_are_kept_for_the_next_run_and_checked_by_it() {
+    let d = scratch("store");
+    let tree = d.join("tree");
+    for i in 0..12 {
+        put(&tree, &format!("d{i}/f{i}.tex"), b"");
+        put(&tree, &format!("d{i}/sub/g{i}.tex"), b"");
+    }
+    put(&tree, "d3/na\u{ef}ve.tex", b"");
+    let t = String::from_utf8(b(&tree)).unwrap();
+    if !fs_keeps_dir_stamps(t.as_bytes()) {
+        return;
+    }
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {t}//\ntexmf_casefold_search = 1\n").as_bytes());
+    let file = d.join("cache/dirs");
+    fs::create_dir_all(d.join("cache")).unwrap();
+    settle(&tree);
+    let run = |store: bool| {
+        let mut k = kpse(&d.join("cnf"), &[]);
+        if store {
+            k.set_dir_store(Some(file.clone()));
+            k.set_dir_store_age(30_000_000);
+        } else {
+            k.set_dir_lists(false);
+        }
+        let mut out = Vec::new();
+        // A name with a directory in it that is there goes to the disk as before, and that reads directories of its own.
+        for name in [&b"f7.tex"[..], b"g2.tex", b"F4.TEX", b"nothing.cfg", b"na\xc3\xafve.tex", b"new.tex", b"more/f7.tex", b"f0.tex"] {
+            out.push((k.find_file(name, KPSE_TEX_FORMAT, true), k.find_file_generic(name, KPSE_TEX_FORMAT, false, true)));
+        }
+        let scans = k.dir_scans();
+        k.keep_dirs();
+        (out, scans)
+    };
+    let literal = run(false);
+    let first = run(true);
+    assert_eq!(first.0, literal.0);
+    assert!(first.1 > 0 && file.exists(), "the first run reads the tree and leaves its lists");
+    let written = fs::metadata(&file).unwrap().modified().unwrap();
+    let second = run(true);
+    assert_eq!(second.0, literal.0);
+    assert_eq!(second.1, 0, "the second reads no directory");
+    assert_eq!(fs::metadata(&file).unwrap().modified().unwrap(), written, "and has nothing to add");
+    // What changes shows: a file comes, one goes, a directory comes.
+    put(&tree, "d5/new.tex", b"");
+    put(&tree, "d6/sub/new.tex", b"");
+    fs::remove_file(tree.join("d0/f0.tex")).unwrap();
+    put(&tree, "d1/more/f7.tex", b"");
+    let (literal, third) = (run(false), run(true));
+    assert_eq!(third.0, literal.0, "at once, when the stamps are young");
+    settle(&tree);
+    let (literal, fourth) = (run(false), run(true));
+    assert_eq!(fourth.0, literal.0, "and later");
+    assert!(fourth.1 > 0 && fourth.1 < first.1, "only what changed is read again: {} of {}", fourth.1, first.1);
+    let fifth = run(true);
+    assert_eq!(fifth.0, literal.0);
+    assert_eq!(fifth.1, 0);
+    // A damaged file is no file.
+    let mut bytes = fs::read(&file).unwrap();
+    let at = bytes.len() - 40;
+    bytes[at] ^= 0x40;
+    fs::write(&file, &bytes).unwrap();
+    let sixth = run(true);
+    assert_eq!(sixth.0, literal.0);
+    fs::write(&file, &bytes[..bytes.len() / 2]).unwrap();
+    assert_eq!(run(true).0, literal.0);
+    assert_eq!(run(true).1, 0, "and it is written again");
+}
+
+/// One instance that asks every directory by its path, and one that asks the disk for every name.
+#[cfg(target_os = "linux")]
+fn by_path_and_literal(d: &Path) -> (Kpse, Kpse) {
+    let mut by_path = kpse(&d.join("cnf"), &[]);
+    by_path.set_dir_holding(false);
+    let mut literal = kpse(&d.join("cnf"), &[]);
+    literal.set_dir_lists(false);
+    (by_path, literal)
+}
+
+/// A directory that is looked at again and again is held open and asked by its descriptor, and the answers stay those of a search that asks the disk for every
+/// name, and of one that asks every directory by its path: while files come and go, a directory is put in another's place, one becomes a symbolic link, the
+/// directory a link leads to is renamed away with nothing in the tree changing, and the tree itself, and the directory above it, are replaced.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_held_directory_answers_as_its_path_does() {
+    let d = scratch("held");
+    let tree = d.join("up/tree");
+    for f in ["a/one.tex", "a/deep/three.tex", "a/deep/er/nine.tex", "b/two.tex", "b/sub/four.tex", "c/five.tex", "top.tex"] {
+        put(&tree, f, b"x");
+    }
+    for f in ["out/x/six.tex", "out/x/y/eight.tex", "other-b/other.tex", "other-b/sub/four.tex", "other-c/cc.tex", "tree2/a/one.tex", "tree2/a/deep/ten.tex", "tree2/z/zed.tex", "up2/tree/q/queue.tex", "up2/tree/a/deep/er/eleven.tex"] {
+        put(&d, f, b"x");
+    }
+    std::os::unix::fs::symlink(d.join("out/x"), tree.join("link")).unwrap();
+    let t = String::from_utf8(b(&tree)).unwrap();
+    put(&d, "cnf/texmf.cnf", format!("TEXINPUTS = {t}/a//;{t}//\ntexmf_casefold_search = 1\n").as_bytes());
+    let names: Vec<&[u8]> = vec![
+        b"one.tex", b"three.tex", b"nine.tex", b"two.tex", b"four.tex", b"five.tex", b"top.tex", b"six.tex", b"eight.tex", b"other.tex", b"cc.tex", b"zed.tex",
+        b"queue.tex", b"new.tex", b"seven.tex", b"nothing.cfg", b"sub/four.tex", b"y/eight.tex", b"ONE.TEX", b"ten.tex", b"eleven.tex", b"twelve.tex",
+    ];
+    let ask = |k: &mut Kpse| {
+        let mut out = Vec::new();
+        // Twice: the second look at a directory by its path is the one that opens it.
+        for _ in 0..2 {
+            for name in &names {
+                for must in [false, true] {
+                    out.push((String::from_utf8_lossy(name).into_owned(), must, k.find_file_generic(name, KPSE_TEX_FORMAT, must, false), k.find_file_generic(name, KPSE_TEX_FORMAT, must, true)));
+                }
+            }
+        }
+        out
+    };
+    let mut held = kpse(&d.join("cnf"), &[]);
+    let mut literal_too = by_path_and_literal(&d);
+    let mut all = |held: &mut Kpse, when: &str| {
+        let (by_path, literal) = &mut literal_too;
+        let (a, p, z) = (ask(held), ask(by_path), ask(literal));
+        for ((x, y), w) in a.iter().zip(&p).zip(&z) {
+            assert_eq!(x, w, "{when}: held against the disk");
+            assert_eq!(y, w, "{when}: by path against the disk");
+        }
+        (held.held_dirs(), by_path.held_dirs())
+    };
+    settle(&tree);
+    let (n, none) = all(&mut held, "settled");
+    // a/deep/, a/deep/er/, b/, b/sub/, c/ and link/y/: every directory that is a plain entry of one that was looked at before it in the same moment.  Not the
+    // tree and not a/, each the top of an element, and not link/, which is a symbolic link.
+    assert_eq!((n, none), (6, 0), "directories held");
+    let before = held.disk_looks();
+    assert_eq!(held.find_file(b"nothing.cfg", KPSE_TEX_FORMAT, true), None);
+    assert_eq!(held.disk_looks() - before, 9, "and a miss still looks at each directory once");
+    put(&tree, "a/deep/new.tex", b"");
+    all(&mut held, "a file came");
+    settle(&tree);
+    all(&mut held, "a file came, settled");
+    // a/deep can no longer be searched: a/deep/er, which is held, is no longer reached by its path, though nothing of it has changed.
+    set_mode(&tree.join("a/deep"), 0o000);
+    all(&mut held, "a directory above a held one closed");
+    settle(&tree);
+    all(&mut held, "a directory above a held one closed, settled");
+    set_mode(&tree.join("a/deep"), 0o755);
+    settle(&tree);
+    let (n, _) = all(&mut held, "and open again");
+    assert_eq!(n, 6, "directories held again");
+    // Another directory in b's place, with a subdirectory of the same name.
+    fs::rename(tree.join("b"), d.join("b-gone")).unwrap();
+    fs::rename(d.join("other-b"), tree.join("b")).unwrap();
+    all(&mut held, "a directory was replaced");
+    settle(&tree);
+    all(&mut held, "a directory was replaced, settled");
+    // c becomes a symbolic link to another directory.
+    fs::rename(tree.join("c"), d.join("c-gone")).unwrap();
+    std::os::unix::fs::symlink(d.join("other-c"), tree.join("c")).unwrap();
+    all(&mut held, "a directory became a link");
+    settle(&tree);
+    all(&mut held, "a directory became a link, settled");
+    // What link leads to is renamed away, and another directory takes its path: nothing in the tree has changed, and nothing of link/y, which is held.  A list
+    // that is taken for good when it is not hides what has come, so each new directory has a file the old one had not.
+    fs::rename(d.join("out"), d.join("out-gone")).unwrap();
+    put(&d, "out/x/seven.tex", b"");
+    put(&d, "out/x/y/twelve.tex", b"");
+    all(&mut held, "a link leads elsewhere");
+    settle(&d.join("out/x"));
+    all(&mut held, "a link leads elsewhere, settled");
+    // Another tree in the tree's place.
+    fs::rename(&tree, d.join("tree-gone")).unwrap();
+    fs::rename(d.join("tree2"), &tree).unwrap();
+    all(&mut held, "the tree was replaced");
+    settle(&tree);
+    all(&mut held, "the tree was replaced, settled");
+    // And another directory in the place of the one above it.
+    fs::rename(d.join("up"), d.join("up-gone")).unwrap();
+    fs::rename(d.join("up2"), d.join("up")).unwrap();
+    all(&mut held, "the directory above was replaced");
+    settle(&tree);
+    let (n, _) = all(&mut held, "the directory above was replaced, settled");
+    // The directories of an element are found once, as in C, so q/ of the newest tree is none of them: a/deep/ and a/deep/er/ are, and they are the new ones.
+    assert_eq!(n, 2, "nothing of the old trees is held");
+}

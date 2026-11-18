@@ -289,7 +289,7 @@ impl FontHit {
         for _ in 0..r.count(8)? {
             cc.push(r.i64()?);
         }
-        Some(FontHit { lengths, tag, fontname, dims, gl, builtin, carry: CarryUse { reusable: true, last_arg_in, last_arg_out, fontname_offset, stack_ptr, cc } })
+        Some(FontHit { lengths, tag, fontname, dims, gl, builtin, carry: CarryUse { reusable: true, last_arg_in, last_arg_out, fontname_offset, stack_ptr, cc, last_arg_used: last_arg_in.is_some(), cc_in: Vec::new() } })
     }
 }
 
@@ -760,6 +760,11 @@ impl HVars {
         hash128(&b, SEED_FONT)
     }
 
+    /// Whether the last PDF has any font or CMap to take: a run with none computes every one of them.
+    pub fn has_derived(&self) -> bool {
+        self.old.as_ref().is_some_and(|o| !o.derived.is_empty())
+    }
+
     pub fn font_lookup(&mut self, key: u128) -> Option<FontHit> {
         let _p = crate::prof_scope!("outcache font lookup");
         let hit = FontHit::from_bytes(self.take_derived(key)?);
@@ -1154,7 +1159,7 @@ mod tests {
             dims,
             gl,
             builtin: Some(names),
-            carry: CarryUse { reusable: true, last_arg_in: Some(3), last_arg_out: None, fontname_offset: Some(99), stack_ptr: 0, cc: vec![1, -2] },
+            carry: CarryUse { reusable: true, last_arg_in: Some(3), last_arg_out: None, fontname_offset: Some(99), stack_ptr: 0, cc: vec![1, -2], last_arg_used: true, cc_in: Vec::new() },
         };
         let g = FontHit::from_bytes(&f.to_bytes()).unwrap();
         assert_eq!(g.lengths, f.lengths);

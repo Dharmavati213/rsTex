@@ -10,17 +10,22 @@ pub type Stamp = [u64; 5];
 /// Now `path`'s [`Stamp`].  It follows symbolic links, as the reads do.
 #[cfg(unix)]
 pub fn file_stamp(path: &[u8]) -> Stamp {
-    use std::os::unix::fs::MetadataExt;
     match std::fs::metadata(path_of(path)) {
-        Ok(m) => [
-            1 + ((m.mode() as u64) << 8),
-            m.size(),
-            (m.mtime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.mtime_nsec() as u64),
-            (m.ctime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.ctime_nsec() as u64),
-            m.ino(),
-        ],
+        Ok(m) => stamp_of(&m),
         Err(_) => [0; 5],
     }
+}
+
+#[cfg(unix)]
+fn stamp_of(m: &std::fs::Metadata) -> Stamp {
+    use std::os::unix::fs::MetadataExt;
+    [
+        1 + ((m.mode() as u64) << 8),
+        m.size(),
+        (m.mtime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.mtime_nsec() as u64),
+        (m.ctime() as u64).wrapping_mul(1_000_000_000).wrapping_add(m.ctime_nsec() as u64),
+        m.ino(),
+    ]
 }
 
 /// Now `path`'s [`Stamp`], DESIGN.md section 12: Windows has size and modification time.
@@ -49,6 +54,11 @@ thread_local! {
 /// From now on, [`note`] keeps what it is told.
 pub fn observe_start() {
     SEEN.with(|s| *s.borrow_mut() = Some(Seen::default()));
+}
+
+/// True while [`note`] keeps what it is told: then every path that is looked at has to be looked at.
+pub fn observing() -> bool {
+    SEEN.with(|s| s.borrow().is_some())
 }
 
 /// What was noted so far, and no more of it.
@@ -138,10 +148,150 @@ impl FileBytes {
     }
 }
 
+/// True if `path` is on a file system that is known to change a directory's times when an entry of it comes or goes, and to keep them from one mount to the
+/// next: the ones a TeX tree is usually on.  Not one that is reached over a network or through FUSE, whose times are another machine's or made up, nor FAT,
+/// whose top directory has none.  `dirstore` asks, before it keeps a list for another run.
+#[cfg(target_os = "linux")]
+pub fn fs_keeps_dir_stamps(path: &[u8]) -> bool {
+    // ext2 to ext4, btrfs, XFS, tmpfs, ZFS, F2FS, bcachefs: `statfs(2)` has the numbers.
+    const KNOWN: [u64; 7] = [0xEF53, 0x9123_683E, 0x5846_5342, 0x0102_1994, 0x2FC1_2FC1, 0xF2F5_2010, 0xCA45_1A4E];
+    unix_map::fs_magic(path).is_some_and(|m| KNOWN.contains(&m))
+}
+
+/// Elsewhere nothing is known, so nothing is kept.
+#[cfg(not(target_os = "linux"))]
+pub fn fs_keeps_dir_stamps(_path: &[u8]) -> bool {
+    false
+}
+
+/// A directory held open, to ask for its [`Stamp`] without walking its path again: `search::Known` says when that is as good as asking by the path.
+#[cfg(target_os = "linux")]
+pub struct HeldDir(std::os::fd::OwnedFd);
+
+/// Elsewhere none is held.
+#[cfg(not(target_os = "linux"))]
+pub struct HeldDir(());
+
+/// Opens `path` to hold it, if it is a directory and no symbolic link.  The descriptor is good for nothing but asking about the directory, and no child process gets it.
+#[cfg(target_os = "linux")]
+pub fn hold_dir(path: &[u8]) -> Option<HeldDir> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let f = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_PATH | libc::O_DIRECTORY | libc::O_NOFOLLOW).open(path_of(path)).ok()?;
+    Some(HeldDir(f.into()))
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn hold_dir(_path: &[u8]) -> Option<HeldDir> {
+    None
+}
+
+/// Now the [`Stamp`] of a directory that is held, as [`file_stamp`] gives it for a path that leads to that directory.
+#[cfg(target_os = "linux")]
+pub fn held_stamp(d: &HeldDir) -> Stamp {
+    use std::os::fd::AsRawFd;
+    unix_map::fd_stamp(d.0.as_raw_fd())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn held_stamp(_d: &HeldDir) -> Stamp {
+    [0; 5]
+}
+
+/// The table of mounts, watched.  A file system mounted over a directory changes the times of no directory, and one that is held open would go on answering
+/// for what lies under it.
+#[cfg(target_os = "linux")]
+pub struct MountWatch(std::fs::File);
+
+#[cfg(not(target_os = "linux"))]
+pub struct MountWatch(());
+
+/// Begins to watch: `None` where there is no `/proc`, and then no directory is held.
+#[cfg(target_os = "linux")]
+pub fn watch_mounts() -> Option<MountWatch> {
+    std::fs::File::open("/proc/self/mounts").ok().map(MountWatch)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn watch_mounts() -> Option<MountWatch> {
+    None
+}
+
+/// True if a file system has been mounted or unmounted since the watch began, or since the last call that said so, and if that cannot be told.
+#[cfg(target_os = "linux")]
+pub fn mounts_changed(w: &MountWatch) -> bool {
+    use std::os::fd::AsRawFd;
+    unix_map::has_priority_event(w.0.as_raw_fd())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn mounts_changed(_w: &MountWatch) -> bool {
+    true
+}
+
+/// How many directories a process may hold at once: a quarter of the files it may have open, and no more than 256, so that what a run opens for itself never meets the limit because of them.
+#[cfg(target_os = "linux")]
+pub fn held_dirs_limit() -> usize {
+    (unix_map::open_files_limit() / 4).min(256) as usize
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn held_dirs_limit() -> usize {
+    0
+}
+
 /// The only `unsafe` of this crate.
 #[cfg(unix)]
 #[allow(unsafe_code)]
 mod unix_map {
+    /// [`super::Stamp`] by `fstat`, which takes a third of the time of a `stat` by a path of six components: the fields are `stamp_of`'s.
+    #[cfg(target_os = "linux")]
+    pub fn fd_stamp(fd: i32) -> super::Stamp {
+        // SAFETY: `buf` is valid for the call, which fills it or fails.
+        unsafe {
+            let mut buf: libc::stat = core::mem::zeroed();
+            if libc::fstat(fd, &mut buf) != 0 {
+                return [0; 5];
+            }
+            [
+                1 + ((buf.st_mode as u64) << 8),
+                buf.st_size as u64,
+                (buf.st_mtime as u64).wrapping_mul(1_000_000_000).wrapping_add(buf.st_mtime_nsec as u64),
+                (buf.st_ctime as u64).wrapping_mul(1_000_000_000).wrapping_add(buf.st_ctime_nsec as u64),
+                buf.st_ino as u64,
+            ]
+        }
+    }
+
+    /// `poll` for `POLLPRI` with no wait, which is how `/proc/self/mounts` says that the table changed: proc(5).  An error counts as an event.
+    #[cfg(target_os = "linux")]
+    pub fn has_priority_event(fd: i32) -> bool {
+        let mut p = libc::pollfd { fd, events: libc::POLLPRI, revents: 0 };
+        // SAFETY: `p` is one valid `pollfd`, as the count says.
+        unsafe { libc::poll(&mut p, 1, 0) != 0 }
+    }
+
+    /// `RLIMIT_NOFILE`, as it stands for this process.
+    #[cfg(target_os = "linux")]
+    pub fn open_files_limit() -> u64 {
+        let mut r = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        // SAFETY: `r` is valid for the call, and on a failure stays what it was.
+        unsafe {
+            libc::getrlimit(libc::RLIMIT_NOFILE, &mut r);
+        }
+        r.rlim_cur as u64
+    }
+
+    /// `f_type` of the file system `path` is on.
+    #[cfg(target_os = "linux")]
+    pub fn fs_magic(path: &[u8]) -> Option<u64> {
+        let c = std::ffi::CString::new(path).ok()?;
+        // SAFETY: `c` is a C string, and `buf` is valid for the call, which fills it or fails.
+        unsafe {
+            let mut buf: libc::statfs = core::mem::zeroed();
+            (libc::statfs(c.as_ptr(), &mut buf) == 0).then(|| buf.f_type as u64 & 0xFFFF_FFFF)
+        }
+    }
+
     /// `RLIMIT_FSIZE`: past it a write gets SIGXFSZ, which ends the process.
     pub fn file_size_limit() -> u64 {
         let mut r = libc::rlimit { rlim_cur: libc::RLIM_INFINITY, rlim_max: libc::RLIM_INFINITY };
@@ -355,34 +505,46 @@ pub fn is_dir(name: &[u8]) -> bool {
     std::fs::metadata(path_of(name)).map(|m| m.is_dir()).unwrap_or(false)
 }
 
-/// The number of links of a directory, for elt-dirs.c's `st_nlink` leaf test.  0 means unknown.
+/// The number of links of a directory, for elt-dirs.c's `st_nlink` leaf test, 0 if unknown, and the directory's [`Stamp`] from the same look at it.
 #[cfg(unix)]
-pub fn dir_nlink(name: &[u8]) -> u64 {
+pub fn dir_stamp_nlink(name: &[u8]) -> (Stamp, u64) {
     use std::os::unix::fs::MetadataExt;
     note(name);
-    std::fs::metadata(path_of(name)).map(|m| m.nlink()).unwrap_or(0)
+    match std::fs::metadata(path_of(name)) {
+        Ok(m) => (stamp_of(&m), m.nlink()),
+        Err(_) => ([0; 5], 0),
+    }
 }
 
 /// Windows has no such count: elt-dirs.c does not use `ST_NLINK_TRICK` there.
 #[cfg(windows)]
-pub fn dir_nlink(_name: &[u8]) -> u64 {
-    0
+pub fn dir_stamp_nlink(name: &[u8]) -> (Stamp, u64) {
+    (file_stamp(name), 0)
 }
 
 /// True if a directory entry is a directory or a symbolic link to one.  Unlike C this needs a `stat`
 /// only for a symbolic link, because the entry's type is already known.
 pub fn entry_is_dir(e: &std::fs::DirEntry) -> bool {
-    let followed = |e: &std::fs::DirEntry| {
-        note(&os_bytes(e.path().as_os_str()));
-        std::fs::metadata(e.path()).map(|m| m.is_dir()).unwrap_or(false)
-    };
-    match e.file_type() {
-        Ok(t) if t.is_dir() => true,
-        Ok(t) if t.is_symlink() => followed(e),
-        Ok(_) => false,
-        Err(_) => followed(e),
+    match entry_kind(e) {
+        ENTRY_DIR => true,
+        ENTRY_OTHER => false,
+        _ => is_dir(&os_bytes(e.path().as_os_str())),
     }
 }
+
+/// What a directory entry is, as far as the entry says: [`ENTRY_DIR`], [`ENTRY_OTHER`], or [`ENTRY_ASK`] for a symbolic link and for an entry of no known type,
+/// which may or may not lead to a directory, and may lead to another thing tomorrow.  Unlike C this needs a `stat` only for those, by [`is_dir`].
+pub fn entry_kind(e: &std::fs::DirEntry) -> u8 {
+    match e.file_type() {
+        Ok(t) if t.is_dir() => ENTRY_DIR,
+        Ok(t) if t.is_symlink() => ENTRY_ASK,
+        Ok(_) => ENTRY_OTHER,
+        Err(_) => ENTRY_ASK,
+    }
+}
+pub const ENTRY_OTHER: u8 = 0;
+pub const ENTRY_DIR: u8 = 1;
+pub const ENTRY_ASK: u8 = 2;
 
 /// db.c's `same_file_p`: the same device and inode.
 #[cfg(unix)]

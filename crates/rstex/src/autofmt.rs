@@ -209,11 +209,17 @@ fn deps_hold(deps: &Path, key: u64) -> bool {
         return false;
     };
     let mut b = f.front();
+    // A build reads some files many times, `cmr10.tfm` 25 times for LaTeX, and a list made before `build_once` left those out has each of them: one look is enough.
+    let mut looked: std::collections::HashSet<(&[u8], kpse::Stamp)> = std::collections::HashSet::new();
     while !b.is_empty() {
         let Some((head, rest)) = b.split_at_checked(44) else { return false };
         let st: kpse::Stamp = core::array::from_fn(|i| u64::from_le_bytes(head[i * 8..i * 8 + 8].try_into().unwrap()));
         let len = u32::from_le_bytes(head[40..44].try_into().unwrap()) as usize;
         let Some((path, rest)) = rest.split_at_checked(len) else { return false };
+        if !looked.insert((path, st)) {
+            b = rest;
+            continue;
+        }
         let now = kpse::file_stamp(path);
         if now != st {
             if verbose() {
@@ -356,9 +362,11 @@ fn build(job: &Build<'_>) -> Built {
     let fls = std::fs::read(tmp.join(as_os(&[base, b".fls"].concat()))).unwrap_or_default();
     let mut list = job.also.to_vec();
     let mut settled = true;
+    let mut listed: std::collections::HashSet<&[u8]> = std::collections::HashSet::new();
     for line in fls.split(|&c| c == b'\n') {
         let Some(path) = line.strip_prefix(b"INPUT ") else { continue };
-        if !goes_on_the_list(path) {
+        // The recorder has a line for each time a file was opened.
+        if !goes_on_the_list(path) || !listed.insert(path) {
             continue;
         }
         let st = kpse::file_stamp(path);

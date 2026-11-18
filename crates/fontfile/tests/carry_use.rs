@@ -65,6 +65,7 @@ fn a_reusable_font_does_not_depend_on_the_carry() {
         }
     }
     let (mut tested, mut reusable, mut with_input, mut failed) = (0u64, 0u64, 0u64, 0u64);
+    let (mut with_use, mut fitted, mut fitted_strictly) = (0u64, 0u64, 0u64);
     for (i, f) in all.iter().enumerate() {
         if i % 3 != 0 {
             continue;
@@ -87,20 +88,40 @@ fn a_reusable_font_does_not_depend_on_the_carry() {
         if o0.carry_use.last_arg_in.is_some() {
             with_input += 1;
         }
+        if o0.carry_use.last_arg_used {
+            with_use += 1;
+        }
         for start in carries.iter().step_by(3) {
-            if !start.fits(&o0.carry_use) {
+            // By the value it read, as a result kept on a disk goes, and by what it did with it, as one of another thread goes: the second takes more starts.
+            let (strict, exact) = (start.fits(&o0.carry_use), start.fits_exact(&o0.carry_use));
+            assert!(exact || !strict, "{}", f.display());
+            if !exact {
                 continue;
             }
+            fitted += 1;
+            fitted_strictly += strict as u64;
             let mut c1 = start.clone();
             let (out1, o1) = run(&b, &codes, &mut c1, b"X").expect("it passed from another start");
             assert_eq!(out0, out1, "{}", f.display());
             assert_eq!(o0.length1, o1.length1);
             assert_eq!(o0.subset_tag, o1.subset_tag);
+            // Rebased, the use is the one the run from that start had, in every part: what the next run finds kept is what a run in order keeps.
+            let mut rebased = o0.carry_use.clone();
+            start.rebase(&mut rebased);
+            assert_eq!(rebased, o1.carry_use, "{}", f.display());
+            assert!(start.fits(&rebased), "{}", f.display());
             let mut applied = start.clone();
-            applied.apply(&o0.carry_use);
+            applied.apply(&rebased);
             assert_eq!(applied, c1, "{}", f.display());
+            if strict {
+                let mut applied = start.clone();
+                applied.apply(&o0.carry_use);
+                assert_eq!(applied, c1, "{}", f.display());
+            }
         }
     }
+    eprintln!("{with_use} used the last_arg they read; {fitted} starts fitted, {fitted_strictly} of them by the value alone");
+    assert!(fitted > fitted_strictly, "no start had another last_arg: nothing was tested of what `fits_exact` adds");
     eprintln!("{} fonts in the tree, {tested} written, {reusable} reusable, {with_input} of those read last_arg, {failed} failed alone", all.len());
     assert!(reusable * 10 >= tested * 8, "{reusable} of {tested}");
 }

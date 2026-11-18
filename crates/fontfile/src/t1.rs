@@ -183,12 +183,37 @@ pub struct CarryUse {
     pub stack_ptr: usize,
     /// The start of `cc_stack`, as far as it was written.
     pub cc: Vec<i64>,
+    /// The value of `last_arg_in` did something: it was the number of a subroutine, or an argument of `callothersubr` or `seac`.  The standard subroutines pop it
+    /// and drop it, so most fonts read it, and for few does it matter what it was.
+    pub last_arg_used: bool,
+    /// Which of `cc` are that value, popped and left there.
+    pub cc_in: Vec<u16>,
 }
 
 impl T1Carry {
     /// Whether a font that was `reusable` may stand for a run from here.
     pub fn fits(&self, u: &CarryUse) -> bool {
         self.stack_ptr == 0 && u.reusable && u.last_arg_in.is_none_or(|v| v == self.last_arg_other_subr3) && u.stack_ptr <= CC_STACK_SIZE && u.cc.len() <= CC_STACK_SIZE
+    }
+
+    /// Whether a font that was `reusable` may stand for a run from here, by what its run did with `last_arg_in` and not only by having read it: for a use made in
+    /// this process, which [`T1Carry::rebase`] then makes the use of a run from here.  A use that was kept on a disk has no `cc_in`, and goes by [`T1Carry::fits`].
+    pub fn fits_exact(&self, u: &CarryUse) -> bool {
+        self.stack_ptr == 0 && u.reusable && (!u.last_arg_used || u.last_arg_in.is_none_or(|v| v == self.last_arg_other_subr3)) && u.stack_ptr <= CC_STACK_SIZE && u.cc.len() <= CC_STACK_SIZE
+    }
+
+    /// Makes of a use that `fits_exact` took the one a run from here would have had: where its run read the value it found, and where it left that value on the
+    /// stack, this puts the value it would have found here.  `fits` and `apply` then go by it as by any other, in this run and in the next, which finds it kept.
+    pub fn rebase(&self, u: &mut CarryUse) {
+        let found = self.last_arg_other_subr3;
+        if u.last_arg_in.is_some() {
+            u.last_arg_in = Some(found);
+        }
+        for &i in &u.cc_in {
+            if let Some(c) = u.cc.get_mut(i as usize) {
+                *c = found;
+            }
+        }
     }
 
     /// What the font would have changed.
@@ -304,6 +329,9 @@ struct T1<'a> {
     use_last_arg_out: Option<i64>,
     use_fontname_offset: Option<i64>,
     use_cc_hi: usize,
+    /// `CarryUse::last_arg_used`, and which places of `cc_stack` hold the value this font found in `last_arg_other_subr3`.
+    use_last_arg_used: bool,
+    found: [bool; CC_STACK_SIZE],
 }
 
 /// `writet1`.  Appends the font program to `out`; the lengths count from where it stood.  `gl` is
@@ -371,6 +399,8 @@ pub fn write_t1(
         use_last_arg_out: None,
         use_fontname_offset: None,
         use_cc_hi: 0,
+        use_last_arg_used: false,
+        found: [false; CC_STACK_SIZE],
     };
     t.t1_check_pfa();
     match t.run() {
@@ -382,6 +412,8 @@ pub fn write_t1(
                 fontname_offset: t.use_fontname_offset,
                 stack_ptr: t.carry.stack_ptr,
                 cc: t.carry.cc_stack[..t.use_cc_hi].to_vec(),
+                last_arg_used: t.use_last_arg_used,
+                cc_in: (0..t.use_cc_hi).filter(|&i| t.found[i]).map(|i| i as u16).collect(),
             };
             Ok(T1Output {
                 length1: t.t1_length1,
@@ -1399,9 +1431,18 @@ impl T1<'_> {
             return Err(self.stack_error(self.carry.stack_ptr as i64));
         }
         self.carry.cc_stack[self.carry.stack_ptr] = v;
+        self.found[self.carry.stack_ptr] = false;
         self.carry.stack_ptr += 1;
         self.use_cc_hi = self.use_cc_hi.max(self.carry.stack_ptr);
         Ok(())
+    }
+
+    /// `cc_top(k)` is about to be looked at: if it is the value this font found, the font's bytes may depend on what that was.
+    #[inline]
+    fn cc_look(&mut self, k: usize) {
+        if self.carry.stack_ptr >= k && self.found[self.carry.stack_ptr - k] {
+            self.use_last_arg_used = true;
+        }
     }
 
     /// Fixes a return-less subr by appending `CS_RETURN`.
@@ -1557,6 +1598,7 @@ impl T1<'_> {
                 last_cmd = b;
                 match b {
                     CS_CALLSUBR => {
+                        self.cc_look(1);
                         let a1 = self.cc_top(1);
                         self.cc_pop(1)?;
                         self.cs_mark(None, a1 as i32, depth + 1)?;
@@ -1573,7 +1615,10 @@ impl T1<'_> {
                         self.cc_push(0)?;
                     }
                     CS_CALLOTHERSUBR => {
+                        self.cc_look(1);
+                        self.cc_look(2);
                         if self.cc_top(1) == 3 {
+                            self.cc_look(3);
                             self.carry.last_arg_other_subr3 = self.cc_top(3);
                             self.use_last_arg_out = Some(self.carry.last_arg_other_subr3);
                         }
@@ -1584,12 +1629,18 @@ impl T1<'_> {
                         // The only case when we care about the value pushed is when POP follows
                         // CALLOTHERSUBR (changing hints by OtherSubrs[3]).
                         let v = self.carry.last_arg_other_subr3;
-                        if self.use_last_arg_out.is_none() && self.use_last_arg_in.is_none() {
+                        let found = self.use_last_arg_out.is_none();
+                        if found && self.use_last_arg_in.is_none() {
                             self.use_last_arg_in = Some(v);
                         }
+                        let at = self.carry.stack_ptr;
                         self.cc_push(v)?;
+                        self.found[at] = found;
                     }
                     CS_SEAC => {
+                        if self.found[3] || self.found[4] {
+                            self.use_last_arg_used = true;
+                        }
                         let a1 = self.carry.cc_stack[3];
                         let a2 = self.carry.cc_stack[4];
                         self.carry.stack_ptr = 0;
