@@ -1767,6 +1767,8 @@ impl Tex {
         }
         let mut closed = meta.closed.iter();
         let mut kept: Vec<(Vec<u8>, Vec<u8>)> = Vec::new();
+        // A validation asks what the world is like now, and writes nothing: its lookups look at each directory of a tree on the disk once.
+        let _now = rstex_kpse::one_moment();
         // The same question gets the same answer within one validation, and a preamble asks many twice: \IfFileExists, then \input.
         let mut asked: std::collections::HashMap<(&[u8], i32, bool), Option<Vec<u8>>> = std::collections::HashMap::new();
         let mut read: std::collections::HashSet<(&[u8], u64, Option<u64>)> = std::collections::HashSet::new();

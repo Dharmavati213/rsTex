@@ -460,6 +460,116 @@ pub struct HVars {
     map_unclean: bool,
     /// The default map file is being parsed again for tables lost: all of it has been said.
     map_quiet: bool,
+    /// The Type 1 fonts of this run that other threads have, or have had: [`T1Ahead`].
+    t1_ahead: Option<std::sync::Arc<T1Ahead>>,
+}
+
+/// `write_t1` for the Type 1 fonts of a run, ahead of `write_fontdescriptors` and on other threads.  A paper has 20 to 30 such fonts and each takes 0.2 to 0.5 ms
+/// to decrypt, parse and subset, one after another at the very end of the run, 4 to 6% of it: 4.5 ms of 111 on a paper of the corpus, where nothing else is left to do.
+///
+/// A font's bytes depend on its file and its descriptor, and on two things the fonts before it leave behind: the tags given out, and the statics of `T1Carry`.  A job
+/// has neither, so it runs as the first font of a run would, and `pdffont_writet1` takes its result only where the output cache would take one from another run, by the
+/// same two tests, and where everything else the job read is what the engine has when it comes to that font, the file's bytes among them: then the result is the
+/// one `write_t1` would give there.  Otherwise the font is done again in its turn, as before.  All that the engine does for a font, the lookup aside, it still does in
+/// its turn and in order: the read that the recorder sees, the messages, the objects.  The lookups come first, for all the files at once.
+///
+/// The thread that needs a job no one has begun does it itself, so with no CPU to spare this is the order it always was.
+struct T1Ahead {
+    jobs: Vec<T1Job>,
+    next: std::sync::atomic::AtomicUsize,
+    done: std::sync::Condvar,
+}
+
+struct T1Job {
+    /// An index in `fd_tab`.
+    fd: i32,
+    path: Vec<u8>,
+    subsetted: bool,
+    all_glyphs: bool,
+    slant: i64,
+    extend: i64,
+    fontname: Vec<u8>,
+    tx: Option<CodeSet>,
+    dims: FontDims,
+    gl: GlyphSet,
+    state: std::sync::Mutex<T1JobState>,
+}
+
+enum T1JobState {
+    Waiting,
+    Running,
+    Done(Box<T1Done>),
+    Taken,
+}
+
+/// What a job read of the file, and what `write_t1` made of it.
+struct T1Done {
+    data: Vec<u8>,
+    dims: FontDims,
+    gl: GlyphSet,
+    out: Vec<u8>,
+    result: Result<ff::T1Output, FontError>,
+}
+
+/// At most this many threads beside the engine's: past it they would start slower than the fonts get done.
+const T1_AHEAD_THREADS: usize = 6;
+
+impl T1Ahead {
+    /// Does job `k` if no one has begun it.
+    fn run(&self, k: usize) {
+        let job = &self.jobs[k];
+        {
+            let mut s = job.state.lock().unwrap_or_else(|e| e.into_inner());
+            if !matches!(*s, T1JobState::Waiting) {
+                return;
+            }
+            *s = T1JobState::Running;
+        }
+        let done = World::read_ahead(&job.path).map(|data| {
+            let (mut dims, mut gl, mut out) = (job.dims, job.gl.clone(), Vec::with_capacity(data.len()));
+            let inp = ff::T1Input {
+                font: &data,
+                subsetted: job.subsetted,
+                all_glyphs: job.all_glyphs,
+                slant: job.slant,
+                extend: job.extend,
+                fontname: &job.fontname,
+                tx_codes: job.tx.as_ref(),
+                used_tags: &[],
+                decrypt: crate::raw::eexec_decrypt,
+            };
+            let result = ff::write_t1(&inp, &mut dims, &mut gl, &mut T1Carry::default(), &mut out);
+            Box::new(T1Done { data, dims, gl, out, result })
+        });
+        *job.state.lock().unwrap_or_else(|e| e.into_inner()) = done.map_or(T1JobState::Taken, T1JobState::Done);
+        self.done.notify_all();
+    }
+
+    /// The jobs in order, until none is left to begin.
+    fn work(&self) {
+        loop {
+            let k = self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if k >= self.jobs.len() {
+                return;
+            }
+            self.run(k);
+        }
+    }
+
+    /// What the job for this descriptor made, once: the caller's thread does it if it has not begun, and waits for it if it has.
+    fn take(&self, fd: i32) -> Option<(&T1Job, Box<T1Done>)> {
+        let k = self.jobs.iter().position(|j| j.fd == fd)?;
+        self.run(k);
+        let job = &self.jobs[k];
+        let mut s = job.state.lock().unwrap_or_else(|e| e.into_inner());
+        while matches!(*s, T1JobState::Running) {
+            s = self.done.wait(s).unwrap_or_else(|e| e.into_inner());
+        }
+        match core::mem::replace(&mut *s, T1JobState::Taken) {
+            T1JobState::Done(d) => Some((job, d)),
+            _ => None,
+        }
+    }
 }
 
 /// `strtol(b, &e, 10)`: the value and the offset of `e`, which is 0 if there is no number.
@@ -1885,7 +1995,7 @@ impl Tex {
     }
 
     /// `writet1`, up to where `write_fontfile` goes on: the three lengths.
-    fn pdffont_writet1(&mut self, fd: &mut Fd, rec: &FdRec, fm: &FmRec) -> (i32, i32, i32) {
+    fn pdffont_writet1(&mut self, i: i32, fd: &mut Fd, rec: &FdRec, fm: &FmRec) -> (i32, i32, i32) {
         let ff_name = self.pdffont_bytes(fm.ff_name);
         // t1_open_fontfile
         let Some(path) = self.pdffont_check_ff_exist(&ff_name, fm.is_truetype()) else {
@@ -1947,9 +2057,37 @@ impl Tex {
             used_tags: &tags,
             decrypt: crate::raw::eexec_decrypt,
         };
-        let r = {
-            let _p = crate::prof_scope!("write_t1: parse and subset");
-            ff::write_t1(&inp, &mut fd.font_dim, &mut fd.gl_tree, &mut carry, &mut out)
+        // What another thread made of this font, if it is what `write_t1` would make of it here: `T1Ahead`.
+        let ahead = self.host.hv.pdffont.t1_ahead.clone().and_then(|a| {
+            let _p = crate::prof_scope!("write_t1: taken from a job");
+            let (job, d) = a.take(i)?;
+            let same = job.path == path
+                && d.data == *data
+                && job.subsetted == inp.subsetted
+                && job.all_glyphs == inp.all_glyphs
+                && job.slant == inp.slant
+                && job.extend == inp.extend
+                && job.fontname == inp.fontname
+                && job.tx.as_ref() == inp.tx_codes
+                && job.dims == fd.font_dim
+                && job.gl == fd.gl_tree;
+            let o = d.result.ok().filter(|o| same && carry.fits_exact(&o.carry_use) && o.subset_tag.is_none_or(|t| !tags.contains(&t)))?;
+            Some((o, d.dims, d.gl, d.out))
+        });
+        let r = match ahead {
+            Some((mut o, dims, gl, made)) => {
+                // What the job read of the statics it read as the first font of a run: here it is what this font found.
+                carry.rebase(&mut o.carry_use);
+                carry.apply(&o.carry_use);
+                fd.font_dim = dims;
+                fd.gl_tree = gl;
+                out = made;
+                Ok(o)
+            }
+            None => {
+                let _p = crate::prof_scope!("write_t1: parse and subset");
+                ff::write_t1(&inp, &mut fd.font_dim, &mut fd.gl_tree, &mut carry, &mut out)
+            }
         };
         self.host.hv.pdffont.t1_carry = carry;
         self.host.hv.pdffont.used_tags = tags;
@@ -2117,10 +2255,10 @@ impl Tex {
     }
 
     /// `write_fontfile`.
-    fn pdffont_write_fontfile(&mut self, fd: &mut Fd, rec: &FdRec, fm: &FmRec) {
+    fn pdffont_write_fontfile(&mut self, i: i32, fd: &mut Fd, rec: &FdRec, fm: &FmRec) {
         let mut lengths = (0, 0, 0);
         if fm.is_type1() {
-            lengths = self.pdffont_writet1(fd, rec, fm);
+            lengths = self.pdffont_writet1(i, fd, rec, fm);
         } else if fm.is_truetype() {
             lengths.0 = self.pdffont_writettf(fd, fm);
         } else if fm.is_opentype() {
@@ -2155,7 +2293,7 @@ impl Tex {
         if fm.is_fontfile() {
             // this will set fd->ff_found if font file is found
             let mut fd = core::mem::take(&mut self.host.hv.pdffont.fds[i as usize]);
-            self.pdffont_write_fontfile(&mut fd, &rec, &fm);
+            self.pdffont_write_fontfile(i, &mut fd, &rec, &fm);
             self.host.hv.pdffont.fds[i as usize] = fd;
         }
         if rec.fn_objnum != 0 {
@@ -2227,9 +2365,62 @@ impl Tex {
             }
         }
         order.sort();
+        self.pdffont_t1_ahead(&order);
         for (_, _, _, i) in order {
             self.pdffont_write_fontdescriptor(i);
         }
+        self.host.hv.pdffont.t1_ahead = None;
+    }
+
+    /// Starts the jobs of [`T1Ahead`] for the Type 1 font files among these descriptors, if there are two or more: one font is done as soon by this thread.  Not where
+    /// the last PDF has fonts to take, since most of them will be taken; not in a session, which keeps its font files; not with `RSTEX_FONT_THREADS=0`.
+    fn pdffont_t1_ahead(&mut self, order: &[(Vec<u8>, i64, i64, i32)]) {
+        if order.len() < 2 || self.session_on() || self.host.hv.outcache.has_derived() {
+            return;
+        }
+        let asked: Option<usize> = platform::env_var(b"RSTEX_FONT_THREADS").and_then(|v| String::from_utf8_lossy(&v).parse().ok());
+        if asked == Some(0) {
+            return;
+        }
+        let mut jobs = Vec::new();
+        for &(_, _, _, i) in order {
+            let rec = self.v_pdffont.fd_tab.get(&mut self.arena, i);
+            let fm = self.pdffont_fm(rec.fm);
+            if !fm.is_fontfile() || !fm.is_type1() {
+                continue;
+            }
+            let ff_name = self.pdffont_bytes(fm.ff_name);
+            // `t1_open_fontfile`'s lookup, which `pdffont_writet1` then finds made.  A file that is not there fails in its turn.
+            let Some(path) = self.pdffont_check_ff_exist(&ff_name, fm.is_truetype()) else { continue };
+            let fd = &self.host.hv.pdffont.fds[i as usize];
+            jobs.push(T1Job {
+                fd: i,
+                path,
+                subsetted: fm.is_subsetted(),
+                all_glyphs: rec.all_glyphs,
+                slant: fm.slant,
+                extend: fm.extend,
+                fontname: fd.fontname.clone(),
+                tx: fd.tx_tree,
+                dims: fd.font_dim,
+                gl: fd.gl_tree.clone(),
+                state: std::sync::Mutex::new(T1JobState::Waiting),
+            });
+        }
+        if jobs.len() < 2 {
+            return;
+        }
+        // A thread for every two fonts: one that finds a single font to do has cost about what it saved.
+        let threads = asked.unwrap_or_else(|| (std::thread::available_parallelism().map_or(1, |n| n.get()) - 1).min(jobs.len() / 2)).min(T1_AHEAD_THREADS).min(jobs.len() - 1);
+        // The first job is this thread's, which comes to it at once.
+        let ahead = std::sync::Arc::new(T1Ahead { jobs, next: std::sync::atomic::AtomicUsize::new(1), done: std::sync::Condvar::new() });
+        for _ in 0..threads {
+            let a = ahead.clone();
+            if std::thread::Builder::new().stack_size(1 << 18).spawn(move || a.work()).is_err() {
+                break;
+            }
+        }
+        self.host.hv.pdffont.t1_ahead = Some(ahead);
     }
 
     /// `write_fontdictionary`.

@@ -945,7 +945,9 @@ fn set_restart(t: &mut Tex, args: &[Vec<u8>]) {
     let args = args.to_vec();
     t.host.hv.native.restart = Some(Box::new(move |written, why| {
         rstex_kpse::reset_global();
-        std::process::exit(run_job(args, None, Some((written, why))))
+        let code = run_job(args, None, Some((written, why)));
+        rstex_kpse::keep_dirs();
+        std::process::exit(code)
     }));
 }
 

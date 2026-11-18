@@ -5,7 +5,8 @@
 //! the C files: `cnf` (cnf.c), `expand` (variable.c, expand.c, tilde.c), `db` (db.c), `search`
 //! (pathsearch.c, elt-dirs.c, tex-file.c), `fontmap` (fontmap.c), `format` (the table in tex-file.c),
 //! `names` (absolute.c and the small string helpers), `glyph` (tex-glyph.c, tex-make.c, magstep.c).  `tree` is new: it finds the
-//! TeX tree.  `index` is new too: it keeps the tables of `texmf.cnf` and `ls-R` for the next run.  `sys` holds what depends on the operating system.
+//! TeX tree.  `index` is new too: it keeps the tables of `texmf.cnf` and `ls-R` for the next run, and `dirstore` what the directories of a tree with no
+//! database hold.  `sys` holds what depends on the operating system.
 //!
 //! # Using it
 //!
@@ -28,8 +29,12 @@
 //! `ls-R` costs no directory scan: `!!` elements never touch the disk, and
 //! other elements that a database covers do so only if `must_exist` and the name is not in it.  Elements
 //! outside any database are expanded once and cached, as in C, and [`Kpse::dir_scans`] counts all of it.
-//! One cost stays, as in C: under `texmf_casefold_search`, which TeX Live sets, a miss in an element
-//! on the disk such as `.` looks through that directory, since a file differing in case there comes first.  Here that is a `stat` and a list kept from the last time.
+//!
+//! An element on the disk is where C is slow, and a personal tree is one: `TEXMFHOME` has no `!!` and no database that counts, so C asks every directory
+//! of it for every name, with a `stat` each, and again for the name in another case under `texmf_casefold_search`, which TeX Live sets.  Here a directory is
+//! asked for its stamp, once in a search, and a name goes to the disk only if the list of that directory has it, in some case: `search::Known`, which has the
+//! reasons, and [`Kpse::disk_looks`] counts.  The lists stay in the cache directory for the next run, `dirstore`, so a tree is read once and after that only
+//! where it has changed.  The answers are C's; [`Kpse::set_dir_lists`] and `RSTEX_KPSE_NO_LISTS` are for holding them against a search that asks for every name.
 //!
 //! # Differences from C
 //!
@@ -42,6 +47,7 @@
 mod cachefile;
 mod cnf;
 mod db;
+mod dirstore;
 mod expand;
 mod fontmap;
 mod format;
@@ -60,7 +66,7 @@ pub use glyph::{
     find_glyph, magstep_fix, maketex_format, maketex_option, set_make_tex_discard_errors, set_program_enabled,
 };
 pub use search::listed_racy_ns;
-pub use sys::{CacheRule, Stamp, cache_dir, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
+pub use sys::{CacheRule, Stamp, cache_dir, fs_keeps_dir_stamps, cache_dir_under, create_private, file_stamp, may_write_file_of, now_ns, open_private, open_private_to_update, publish_path, write_stderr};
 pub use tree::{Tree, TreeSource, builtin_cnf, discover, from_tree_dirs, parse_kpsewhich_answer, parse_miktex_report};
 
 use names::*;
@@ -158,7 +164,13 @@ pub struct Kpse {
     pub(crate) db_casefold: bool,
     pub(crate) recorded: Vec<Vec<u8>>,
     pub(crate) dir_scans: u64,
+    pub(crate) disk_looks: u64,
     pub(crate) listed_dirs: std::collections::HashMap<Vec<u8>, search::ListedDir>,
+    /// What the directories of `dir_lists` hold, and for each list what they hold together.
+    pub(crate) known: search::Known,
+    pub(crate) list_filters: Vec<search::ListFilter>,
+    /// Above 0 while searches are of one moment: see [`OneMoment`].
+    pub(crate) moment_held: u32,
     /// What there is to say on stderr, each message whole, with its line end.
     warnings: Vec<Vec<u8>>,
     /// How many messages [`Kpse::say`] has been given, those past the ones `warnings` keeps too.
@@ -230,7 +242,11 @@ impl Kpse {
             db_casefold: cfg.db_casefold,
             recorded: Vec::new(),
             dir_scans: 0,
+            disk_looks: 0,
             listed_dirs: Default::default(),
+            known: search::Known::new(cfg.process_env),
+            list_filters: Vec::new(),
+            moment_held: 0,
             warnings: Vec::new(),
             said: 0,
             make: vec![glyph::MakeInfo::default(); KPSE_LAST_FORMAT as usize],
@@ -238,6 +254,45 @@ impl Kpse {
             missfont: None,
             fallback_resolutions: None,
         }
+    }
+
+    /// How many times a search of a list of directories has asked the disk of a name or of a directory's stamp: what C does once or twice for each directory and
+    /// name.  For tests and for measuring.
+    pub fn disk_looks(&self) -> u64 {
+        self.disk_looks
+    }
+
+    /// Keeps what this instance has learned of the directories of trees on the disk for the next run, if there is anything new: `dirstore`.
+    pub fn keep_dirs(&mut self) {
+        self.known.save();
+    }
+
+    /// Where the lists of directories are kept from one run to another, or nowhere.  An instance that goes by the process's environment has a file in rstex's
+    /// cache directory for it; this is for tests.
+    pub fn set_dir_store(&mut self, file: Option<std::path::PathBuf>) {
+        self.known.set_store(file);
+    }
+
+    /// For tests: how old a directory's stamp has to be for its list to be kept for another run, an hour unless this says otherwise.
+    pub fn set_dir_store_age(&mut self, ns: u64) {
+        self.known.settled_ns = ns;
+    }
+
+    /// Whether a search of the disk goes by what it knows a directory to hold, see `search::Known`, or asks the disk for every name as C does: the answers are
+    /// the same, and a test holds one against the other.  `RSTEX_KPSE_NO_LISTS` in the environment turns it off for a run.
+    pub fn set_dir_lists(&mut self, on: bool) {
+        self.known.off = !on;
+    }
+
+    /// Whether a directory of a tree on the disk that is looked at again and again is held open, so that its stamp comes from the descriptor: `search::Known::stamp_now`.
+    /// The answers are the same, and a test holds one against the other.  `RSTEX_KPSE_NO_HOLD` in the environment turns it off for a run.
+    pub fn set_dir_holding(&mut self, on: bool) {
+        self.known.no_hold = !on;
+    }
+
+    /// How many directories are held open now.  For tests and for measuring.
+    pub fn held_dirs(&self) -> usize {
+        self.known.held
     }
 
     /// How many directories have been opened to list them, whether that succeeded or not.  A search
@@ -704,7 +759,33 @@ pub fn with_global<R>(f: impl FnOnce(&mut Kpse) -> R) -> R {
 /// Forgets the shared instance: the next use starts as a process does.  A checkpoint that turned out not to hold has made
 /// lookups in an order of its own, which `-recorder` would see.
 pub fn reset_global() {
+    keep_dirs();
     *GLOBAL.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+/// Keeps what the shared instance has learned of the directories of trees on the disk for the next run, if there is anything new: `dirstore`.  For the end of a run.
+pub fn keep_dirs() {
+    if let Some(k) = GLOBAL.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+        k.keep_dirs();
+    }
+}
+
+/// [`Kpse::begin_moment`] on the shared instance, until this is dropped: as a restore asks again what the run whose state it takes had asked.
+pub struct OneMoment(());
+
+/// Begins a moment that lasts until what it returns is dropped.
+pub fn one_moment() -> OneMoment {
+    with_global(Kpse::begin_moment);
+    OneMoment(())
+}
+
+impl Drop for OneMoment {
+    fn drop(&mut self) {
+        // An instance made since, by `reset_global`, holds nothing.
+        if let Some(k) = GLOBAL.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+            k.end_moment();
+        }
+    }
 }
 
 /// `kpse_find_file`.  `must_exist` asks for a search of the disk if the databases do not have the name.
