@@ -1,0 +1,46 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 60
+% The case change of texts with every printable ASCII character, groups, \protect, math, accents and UTF-8, in each of its forms: each three times in a
+% message and twice as \MakeUppercase in the text, which crate::case_memo records once and replays after.  \tracingstats shows the stacks' marks.
+\documentclass{article}
+\tracingstats=2
+\ExplSyntaxOn
+\cs_new_protected:Npn \casetest #1
+  {
+    \prg_replicate:nn { 3 }
+      {
+        \iow_term:e { U[ \text_uppercase:n {#1} ] }
+        \iow_term:e { L[ \text_lowercase:n {#1} ] }
+        \iow_term:e { T[ \text_titlecase_first:n {#1} ] }
+        \iow_term:e { A[ \text_titlecase_all:n {#1} ] }
+      }
+  }
+\cs_new_protected:Npn \casestr
+  {
+    \casetest
+      {
+        \c_hash_str \c_dollar_str \c_percent_str \c_ampersand_str \c_circumflex_str \c_underscore_str \c_tilde_str
+        \c_left_brace_str \c_right_brace_str \c_backslash_str
+      }
+  }
+\ExplSyntaxOff
+\begin{document}
+\casetest{abcdefghijklmnopqrstuvwxyz}
+\casetest{ABCDEFGHIJKLMNOPQRSTUVWXYZ}
+\casetest{0123456789 !"'()*+,-./:;<=>?@[]`|}
+\casestr
+\casetest{a~b \# \$ \% \& \_ \{ \} x&y}
+\casetest{  spaces   between  and around  }
+\casetest{}
+\casetest{{nested {groups {all the way}} down} and \textbf{bold} \emph{emph}}
+\casetest{\protect\textit{italic} \protect\foo}
+\casetest{math $a^2 + b_1 = \alpha$ and \(x\)}
+\casetest{\'e \`a \^o \"u \~n \c{c} \ss{} \o{} \ae{} \AE{} \i{} \oe{} \aa{} \l{} \v{s}}
+\casetest{é à ô ü ñ ç ß ø æ ĳ ǆ İ ı ŉ}
+\casetest{word-Word WORD wOrD x.y.z first second}
+\MakeUppercase{abc defg \textbf{hij} $x^2$ é ß}\par
+\MakeUppercase{abc defg \textbf{hij} $x^2$ é ß}\par
+\MakeLowercase{ABC DEFG \textbf{HIJ} $X^2$ É}\par
+\MakeLowercase{ABC DEFG \textbf{HIJ} $X^2$ É}\par
+\end{document}

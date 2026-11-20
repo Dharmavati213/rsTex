@@ -126,6 +126,9 @@ impl Tex {
         self.cur_if = self.cur_chr;
         self.if_limit = IF_CODE;
         self.if_line = self.line;
+        if self.v_image.cm.rec != 0 {
+            self.case_memo_cond();
+        }
 
         let save_cond_ptr = self.cond_ptr;
         let is_unless = self.cur_chr >= UNLESS_CODE;
@@ -188,6 +191,9 @@ impl Tex {
                             q += 1;
                         }
                         b = self.toks[p] == 0 && self.toks[q] == 0;
+                    }
+                    if self.v_image.cm.rec != 0 {
+                        self.case_memo_ifx(n, self.cur_cs, b);
                     }
                 }
                 self.scanner_status = save_scanner_status;
@@ -366,6 +372,9 @@ impl Tex {
                     self.cur_cs = NULL_CS; // the list is empty
                 } else {
                     self.cur_cs = SINGLE_BASE + self.buffer.at(self.first); // the list has length one
+                }
+                if self.v_image.cm.rec != 0 {
+                    self.case_memo_ifcsname(m);
                 }
                 self.tx_discard(n);
                 b = self.eq_type(self.cur_cs) != UNDEFINED_CS;

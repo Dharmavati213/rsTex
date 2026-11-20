@@ -2161,6 +2161,7 @@ pub struct HostVars {
     pub etex: crate::etex::HVars,
     pub web2c: crate::web2c::HVars,
     pub synctex: crate::synctex::HVars,
+    pub case_memo: crate::case_memo::HVars,
 }
 
 impl Host {

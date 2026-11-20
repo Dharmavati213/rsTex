@@ -113,6 +113,11 @@ $S --check-mutants
 python3 -I tests/native_font/run.py --engine W
 python3 -I tests/native_font/run.py --engine W --corpus '^(ladder/|user/|manuals/microtype/|local/sga3/SGA3-English$|arxiv/math\.AG/)'
 
+# The memo of expansions
+python3 -I tests/native_font/run.py --engine W --lever case_memo
+python3 -I tests/native_font/memo_fuzz.py --engine W
+python3 -I tests/native_font/run.py --engine W --lever case_memo --corpus '^(ladder/|user/|arxiv/math\.AG/|arxiv/math\.CT/2503\.22699v1$|stacks/algebra$|local/sga3/SGA3-English$)'
+
 # SyncTeX, and an editor's flags in F
 F='-synctex=1 -interaction=nonstopmode -file-line-error -recorder'
 python3 -I tests/synctex/run.py --engine W

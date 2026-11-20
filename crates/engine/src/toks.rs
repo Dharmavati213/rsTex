@@ -1045,6 +1045,9 @@ impl Tex {
             self.print_ln();
             self.token_show(self.cur_chr);
         } else if self.cur_cmd == TOP_BOT_MARK && self.cur_chr < MARKS_CODE {
+            if self.v_image.cm.rec != 0 {
+                self.cm_abort("a mark");
+            }
             self.print_char(b':' as i32);
             self.print_ln();
             self.token_show(self.cur_mark[self.cur_chr]);

@@ -49,6 +49,9 @@ impl Tex {
     /// §490
     /// Appends to the current token builder instead of returning a tail; see PORTING.md.
     pub fn str_toks(&mut self, b: i32) {
+        if self.v_image.cm.rec != 0 {
+            self.case_memo_strings(0);
+        }
         self.str_room(1);
         let m = self.tb_ptr;
         let n = self.pool_ptr - b;
@@ -181,6 +184,9 @@ impl Tex {
     /// §496
     pub fn conv_toks(&mut self) {
         let c = self.cur_chr;
+        if self.v_image.cm.rec != 0 {
+            self.case_memo_convert(c);
+        }
         let mut p = NULL;
         let mut i = 0;
         let mut j = 0;
@@ -192,6 +198,9 @@ impl Tex {
                 self.scanner_status = NORMAL;
                 self.get_token();
                 self.scanner_status = save_scanner_status;
+                if self.v_image.cm.rec != 0 && c == MEANING_CODE {
+                    self.case_memo_strict(self.cur_cs);
+                }
             }
             FONT_NAME_CODE => self.scan_font_ident(),
             ETEX_REVISION_CODE => {}
@@ -200,7 +209,10 @@ impl Tex {
                 let save_warning_index = self.warning_index;
                 let save_def_ref = self.def_ref;
                 let u = self.buildtoks_save_cur_string();
-                self.scan_pdf_ext_toks();
+                // From the memo of expansions, or recorded for it: crate::case_memo.
+                if !(self.v_image.cm.mode != crate::case_memo::MODE_OFF && self.v_image.cm.rec == 0 && self.case_memo_expanded()) {
+                    self.scan_pdf_ext_toks();
+                }
                 self.warning_index = save_warning_index;
                 self.scanner_status = save_scanner_status;
                 self.drop_ref(); // free_avail(def_ref)

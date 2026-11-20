@@ -1,0 +1,20 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 2
+% \string, \detokenize and \meaning print a font's identifier by the name of the last \font that loaded that font at that size, which
+% `\font\zz=cmr10` changes.  Each call prints the name it has then.
+\documentclass{article}
+\ExplSyntaxOn
+\cs_new_eq:NN \tu \text_uppercase:n
+\ExplSyntaxOff
+\begin{document}
+\edef\x{\tu{\expandafter\string\the\font}}\message{[\meaning\x]}
+\edef\x{\tu{\expandafter\string\the\font}}\message{[\meaning\x]}
+\font\zz=cmr10
+\edef\x{\tu{\expandafter\string\the\font}}\message{[\meaning\x]}
+\edef\x{\tu{\expandafter\string\the\font}}\message{[\meaning\x]}
+\edef\y{\expandafter\noexpand\the\font}
+\edef\x{\tu{\expandafter\detokenize\expandafter{\y}}}\message{[\meaning\x]}
+\font\yy=cmr10
+\edef\x{\tu{\expandafter\detokenize\expandafter{\y}}}\message{[\meaning\x]}
+\end{document}

@@ -1,0 +1,25 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 10
+% Languages: the case change takes the language's tag, which is part of the key, so Turkish and English are entries of their own, and \MakeUppercase
+% has it from babel's \BCPdata; and a quark \let to something else between calls of one key, which the memo sees, and records again.
+\documentclass{article}
+\tracingstats=2
+\usepackage[english]{babel}
+\babelprovide[import]{turkish}
+\ExplSyntaxOn
+\cs_new_protected:Npn \ct #1#2 { \iow_term:e { [ #1 : \text_uppercase:nn {#1} {#2} : \text_lowercase:nn {#1} {#2} ] } }
+\cs_new_protected:Npn \quarklet { \cs_set_eq:NN \q__text_stop \scan_stop: }
+\ExplSyntaxOff
+\begin{document}
+\ct{en}{İSTANBUL Iİ istanbul ıi}\ct{en}{İSTANBUL Iİ istanbul ıi}\ct{en}{İSTANBUL Iİ istanbul ıi}
+\ct{tr}{İSTANBUL Iİ istanbul ıi}\ct{tr}{İSTANBUL Iİ istanbul ıi}\ct{tr}{İSTANBUL Iİ istanbul ıi}
+\MakeUppercase{istanbul ıi}\par
+\MakeUppercase{istanbul ıi}\par
+\foreignlanguage{turkish}{\MakeUppercase{istanbul ıi}}\par
+\foreignlanguage{turkish}{\MakeUppercase{istanbul ıi}}\par
+\MakeUppercase{istanbul ıi}\par
+\quarklet
+\ct{en}{İSTANBUL Iİ istanbul ıi}\ct{en}{İSTANBUL Iİ istanbul ıi}
+\ct{tr}{İSTANBUL Iİ istanbul ıi}\ct{tr}{İSTANBUL Iİ istanbul ıi}
+\end{document}

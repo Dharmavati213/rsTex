@@ -140,13 +140,20 @@ impl Tex {
 
     /// §439 as WEB has it.
     fn scan_internal_others(&mut self, level: i32, negative: bool) {
+        use crate::case_memo::{RD_EQTB, RD_EQTB_LIST, RD_MEM, RD_MEM_LIST};
         let mut m;
         'restart: loop {
             m = self.cur_chr;
+            if self.v_image.cm.rec != 0 {
+                self.case_memo_internal();
+            }
             match self.cur_cmd {
                 DEF_CODE => {
                     // §440 Fetch a character code from some table
                     self.scan_char_num();
+                    if self.v_image.cm.rec != 0 {
+                        self.case_memo_read(RD_EQTB, m + self.cur_val);
+                    }
                     if m == MATH_CODE_BASE {
                         self.scanned_result(self.math_code(self.cur_val), INT_VAL);
                     } else if m < MATH_CODE_BASE {
@@ -171,6 +178,13 @@ impl Tex {
                             // cur_cmd=toks_register
                             if m == MEM_BOT {
                                 self.scan_register_num();
+                                if self.v_image.cm.rec != 0 {
+                                    if self.cur_val < 256 {
+                                        self.case_memo_read(RD_EQTB_LIST, TOKS_BASE + self.cur_val);
+                                    } else {
+                                        self.cm_abort("a register past 255");
+                                    }
+                                }
                                 if self.cur_val < 256 {
                                     self.cur_val = self.equiv(TOKS_BASE + self.cur_val);
                                 } else {
@@ -182,9 +196,15 @@ impl Tex {
                                     }
                                 }
                             } else {
+                                if self.v_image.cm.rec != 0 {
+                                    self.case_memo_read(RD_MEM_LIST, m + 1);
+                                }
                                 self.cur_val = self.sa_ptr(m);
                             }
                         } else {
+                            if self.v_image.cm.rec != 0 {
+                                self.case_memo_read(RD_EQTB_LIST, m);
+                            }
                             self.cur_val = self.equiv(m);
                         }
                         self.cur_val_level = TOK_VAL;
@@ -299,6 +319,9 @@ impl Tex {
                 ASSIGN_FONT_DIMEN => {
                     // §451 Fetch a font dimension
                     self.find_font_dimen(false);
+                    if self.v_image.cm.rec != 0 {
+                        self.case_memo_fontdimen();
+                    }
                     let k = self.fmem_ptr;
                     self.font_info[k].set_sc(0);
                     self.scanned_result(self.font_info[self.cur_val].sc(), DIMEN_VAL);
@@ -306,6 +329,9 @@ impl Tex {
                 ASSIGN_FONT_INT => {
                     // §452 Fetch a font integer
                     self.scan_font_ident();
+                    if self.v_image.cm.rec != 0 && m <= 1 {
+                        self.case_memo_read(if m == 0 { crate::case_memo::RD_HYPHEN_CHAR } else { crate::case_memo::RD_SKEW_CHAR }, self.cur_val);
+                    }
                     if m == 0 {
                         self.scanned_result(self.hyphen_char[self.cur_val], INT_VAL);
                     } else if m == 1 {
@@ -362,6 +388,13 @@ impl Tex {
                     // §453 Fetch a register
                     if m < MEM_BOT || m > LO_MEM_STAT_MAX {
                         self.cur_val_level = self.sa_type(m);
+                        if self.v_image.cm.rec != 0 {
+                            if self.cur_val_level < GLUE_VAL {
+                                self.case_memo_read(RD_MEM, m + 2);
+                            } else {
+                                self.cm_abort("a glue");
+                            }
+                        }
                         if self.cur_val_level < GLUE_VAL {
                             self.cur_val = self.sa_int(m);
                         } else {
@@ -370,6 +403,15 @@ impl Tex {
                     } else {
                         self.scan_register_num();
                         self.cur_val_level = m - MEM_BOT;
+                        if self.v_image.cm.rec != 0 {
+                            if self.cur_val > 255 || self.cur_val_level >= GLUE_VAL {
+                                self.cm_abort("a register past 255, or a glue");
+                            } else if self.cur_val_level == INT_VAL {
+                                self.case_memo_read(RD_EQTB, COUNT_BASE + self.cur_val);
+                            } else {
+                                self.case_memo_read(RD_EQTB, SCALED_BASE + self.cur_val);
+                            }
+                        }
                         if self.cur_val > 255 {
                             self.find_sa_element(self.cur_val_level, self.cur_val, false);
                             if self.cur_ptr == NULL {
@@ -1231,10 +1273,19 @@ impl Tex {
                                 break 'not_found;
                             }
                             if self.scan_keyword(b"em") {
+                                if self.v_image.cm.rec != 0 {
+                                    self.case_memo_font_unit(QUAD_CODE);
+                                }
                                 v = self.quad(self.cur_font()); // §584 The em width for cur_font
                             } else if self.scan_keyword(b"ex") {
+                                if self.v_image.cm.rec != 0 {
+                                    self.case_memo_font_unit(X_HEIGHT_CODE);
+                                }
                                 v = self.x_height(self.cur_font()); // §585 The x-height for cur_font
                             } else if self.scan_keyword(b"px") {
+                                if self.v_image.cm.rec != 0 {
+                                    self.case_memo_read(crate::case_memo::RD_EQTB, DIMEN_BASE + PDF_PX_DIMEN_CODE);
+                                }
                                 v = self.pdf_px_dimen();
                             } else {
                                 break 'not_found;
@@ -1276,6 +1327,9 @@ impl Tex {
                     }
                     if self.scan_keyword(b"true") {
                         // §483 Adjust f for the magnification ratio
+                        if self.v_image.cm.rec != 0 {
+                            self.cm_abort("true units");
+                        }
                         self.prepare_mag();
                         if self.mag() != 1000 {
                             self.cur_val = self.xn_over_d(self.cur_val, 1000, self.mag());

@@ -1,0 +1,24 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 3
+% A text that expands to an & comes to a capture loop of crate::capture, which passes it with no test where align_state cannot be 0 from where it
+% starts.  Recorded outside an alignment, it is replayed outside one, where align_state is the same, and not in a cell where it is
+% -10 when the call begins: there the real path reads that & at align_state 0, a template comes in, and the errors follow.  Each align_state
+% gets its entry, and a text with no & is replayed in the cell too.
+\documentclass{article}
+\tracingstats=2
+\def\amp{&}
+\ExplSyntaxOn
+\cs_new_eq:NN \tu \text_uppercase:n
+\ExplSyntaxOff
+\begin{document}
+\edef\x{\tu{a\amp b}}\message{[\meaning\x]}
+\edef\x{\tu{a\amp b}}\message{[\meaning\x]}
+\edef\x{\tu{plain}}\message{[\meaning\x]}
+\halign{#\cr
+\relax\iffalse}}}}}}}}}}\fi\edef\x{\tu{a\amp b}}\iffalse{{{{{{{{{{\fi\message{[\meaning\x]}\cr
+\relax\iffalse}}}}}}}}}}\fi\edef\x{\tu{plain}}\iffalse{{{{{{{{{{\fi\message{[\meaning\x]}\cr
+\relax\iffalse}}}}}}}}}}\fi\edef\x{\tu{plain}}\iffalse{{{{{{{{{{\fi\message{[\meaning\x]}\cr
+}
+\edef\x{\tu{plain}}\message{[\meaning\x]}
+\end{document}

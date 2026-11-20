@@ -1391,8 +1391,10 @@ impl Tex {
             return Some("in the middle of an error".to_string());
         }
         // A page and all it brings: the fonts' and images' state on the way out, the job id, half a DVI buffer.  A PDF file with
-        // only its header and `\\immediate` objects is fine.
-        if self.init_pdf_output || self.total_pages != 0 {
+        // only its header and `\\immediate` objects is fine, and so are forms shipped by `\\immediate\\pdfxform`, as pgf's fadings are:
+        // §792 has set up what a page record's restore sets up again, and the job id, made from the clock, is read by nothing
+        // unless `\\pdfuniqueresname` took a prefix from it then, which a record refuses too.
+        if self.total_pages != 0 || (self.init_pdf_output && (self.pdf_output() <= 0 || self.pdf_resname_prefix != 0 || self.pdf_unique_resname() > 0)) {
             return Some("something was shipped out".to_string());
         }
         if let Some(why) = self.synctex_refusal() {
@@ -1931,6 +1933,19 @@ impl Tex {
         self.host.full_name_of_file = meta.full_name_of_file;
         // What `search_string` keeps of the strings of a run: a process that comes here has made none yet, and this says that it does not rest on that.
         self.host.hv.strings = Default::default();
+        // A form shipped in the preamble: what §792 set up outside the image, as `pages_restore_host` does for a record.
+        if self.init_pdf_output {
+            let mode = if self.pdf_pk_mode() != NULL {
+                let s = self.tokens_to_string(self.pdf_pk_mode());
+                let m = self.make_cstring(s);
+                self.flush_string();
+                m
+            } else {
+                Vec::new()
+            };
+            self.kpse_init_prog(b"PDFTEX", self.fixed_pk_resolution, &mode, b"");
+            self.kpse_set_program_enabled(rstex_kpse::KPSE_PK_FORMAT, true, crate::pdfship::KPSE_SRC_COMPILE);
+        }
         // Last: up to here a failure means a cold run, which says all this itself.
         match &mut self.host.term_capture {
             Some(c) => c.extend_from_slice(&meta.term),

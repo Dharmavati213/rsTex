@@ -332,6 +332,9 @@ impl Tex {
                     self.print_char(b' ' as i32);
                 } else {
                     self.print_esc(p - SINGLE_BASE);
+                    if self.v_image.cm.rec != 0 {
+                        self.case_memo_read(crate::case_memo::RD_EQTB, CAT_CODE_BASE + p - SINGLE_BASE);
+                    }
                     if self.cat_code(p - SINGLE_BASE) == LETTER {
                         self.print_char(b' ' as i32);
                     }
@@ -349,6 +352,9 @@ impl Tex {
             if p >= PRIM_EQTB_BASE && p < FROZEN_NULL_FONT {
                 self.print_esc(self.prim_text(p - PRIM_EQTB_BASE) - 1);
             } else {
+                if self.v_image.cm.rec != 0 {
+                    self.case_memo_cs_text(p);
+                }
                 self.print_esc(self.text(p));
             }
             self.print_char(b' ' as i32);
@@ -369,6 +375,9 @@ impl Tex {
         } else if p >= PRIM_EQTB_BASE && p < FROZEN_NULL_FONT {
             self.print_esc(self.prim_text(p - PRIM_EQTB_BASE) - 1);
         } else {
+            if self.v_image.cm.rec != 0 {
+                self.case_memo_cs_text(p);
+            }
             self.print_esc(self.text(p));
         }
     }

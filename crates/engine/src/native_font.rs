@@ -361,10 +361,11 @@ impl Tex {
         }
     }
 
-    /// The cells of lists that only the references held here keep alive, an old `\\MT@font@list` above all: the oracle's memory has given those back.  For `webmem.rs`.
-    pub fn pf_held_cells(&self) -> i64 {
+    /// The cells of lists that only the references held here and in `case_memo.rs` keep alive, an old `\\MT@font@list` above all: the oracle's memory has given those back.  For `webmem.rs`.
+    pub fn held_cells(&self) -> i64 {
         let pf = &self.v_image.pf;
         let mut held: Vec<i32> = Vec::new();
+        self.cm_held_blocks(&mut held);
         for k in 0..MEMO as i32 {
             if pf.memo_f[k] != 0 {
                 held.push(pf.memo_fonts[k]);
@@ -805,6 +806,7 @@ impl Tex {
             "pf: not armed {}, context {}, guards {}, font {}, taken {}; arms {}\n",
             pf.stats[0], pf.stats[1], pf.stats[2], pf.stats[3], pf.stats[4], pf.arms
         );
+        o += &self.cm_report();
         if pf.mode == MODE_PEAK {
             o += &format!(
                 "pf peak, between calls, over {} calls: input +{} param +{} save +{} buffer +{}; {} in a row, cur_val {} level {} radix {}\n",

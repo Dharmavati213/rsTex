@@ -38,6 +38,9 @@ const STRINGS_BUCKETS: usize = 1 << 13;
 impl Tex {
     /// §43
     pub fn make_string(&mut self) -> i32 {
+        if self.v_image.cm.rec != 0 {
+            self.case_memo_strings(1);
+        }
         if self.str_ptr == self.max_strings {
             self.overflow(b"number of strings", self.max_strings - self.init_str_ptr);
         }

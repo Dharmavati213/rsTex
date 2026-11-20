@@ -57,6 +57,7 @@ pub mod checkpoint;
 pub mod synctex;
 pub mod native;
 pub mod native_font;
+pub mod case_memo;
 pub mod session;
 pub mod main;
 pub mod ext;

@@ -1,0 +1,16 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 8
+% Running heads, which call \MakeUppercase on every page with the same text: a book's chapters and sections.
+\documentclass{book}
+\tracingstats=2
+\usepackage{lipsum}
+\begin{document}
+\chapter{Introduction to the Case}
+\section{A section with \emph{some} words}
+\lipsum[1-30]
+\section{Another section, $x^2$ and \'e}
+\lipsum[31-50]
+\chapter{Second Chapter}
+\lipsum[1-40]
+\end{document}

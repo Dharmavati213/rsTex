@@ -1,0 +1,21 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 1
+% A macro that is not \long checks each token of its arguments against par_token, which \partokenname sets.  A text that gives \foo to such a
+% macro is replayed until \foo is the par token, and then the real path stops with a runaway argument, as on the oracle; with \par the par token
+% again, it is replayed again.
+\documentclass{article}
+\def\ux#1{[#1]}
+\def\foo{F}
+\ExplSyntaxOn
+\cs_new_eq:NN \tu \text_uppercase:n
+\ExplSyntaxOff
+\begin{document}
+\edef\x{\tu{a\ux{\foo}b}}\message{[\meaning\x]}
+\edef\x{\tu{a\ux{\foo}b}}\message{[\meaning\x]}
+\partokenname\foo
+\edef\x{\tu{a\ux{\foo}b}}\message{[\meaning\x]}
+\partokenname\par
+\edef\x{\tu{a\ux{\foo}b}}\message{[\meaning\x]}
+\edef\x{\tu{a\ux{\foo}b}}\message{[\meaning\x]}
+\end{document}

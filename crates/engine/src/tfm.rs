@@ -522,12 +522,18 @@ impl Tex {
         }
         let f;
         if self.cur_cmd == DEF_FONT || self.cur_cmd == LETTERSPACE_FONT || self.cur_cmd == PDF_COPY_FONT {
+            if self.v_image.cm.rec != 0 {
+                self.case_memo_read(crate::case_memo::RD_EQTB, CUR_FONT_LOC);
+            }
             f = self.cur_font();
         } else if self.cur_cmd == SET_FONT {
             f = self.cur_chr;
         } else if self.cur_cmd == DEF_FAMILY {
             let m = self.cur_chr;
             self.scan_four_bit_int();
+            if self.v_image.cm.rec != 0 {
+                self.case_memo_read(crate::case_memo::RD_EQTB, m + self.cur_val);
+            }
             f = self.equiv(m + self.cur_val);
         } else {
             self.print_err_s(b"Missing font identifier");

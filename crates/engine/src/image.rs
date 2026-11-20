@@ -60,6 +60,8 @@ crate::pod_struct! {
         pub cd: crate::native::Vars,
         /// The native `\\pickup@font`'s.
         pub pf: crate::native_font::Vars,
+        /// The memo of expansions.
+        pub cm: crate::case_memo::Vars,
         /// `RSTEX_NO_SHARE`: crate::capture hands no argument on.  What it decides is in a checkpoint's key, as the driver's `Options` is.
         pub no_share: bool,
         /// SyncTeX's: `synctex_ctxt`.

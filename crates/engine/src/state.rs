@@ -66,6 +66,9 @@ pub const DEST_NAMES_CAP: usize = 500001;
 pub const FILE_NAME_CAP: usize = 65536;
 /// general POD arena words (u64), 512 MiB; see arena_vec
 pub const ARENA_CAP: usize = 1 << 26;
+/// The cells and the bytes that `case_memo.rs`'s entries may take.
+pub const CM_ARENA_CAP: usize = 1 << 17;
+pub const CM_OPS_CAP: usize = 1 << 17;
 
 crate::pod_struct! {
     /// list_state_record §230.
@@ -1491,6 +1494,10 @@ pub struct Tex {
     pub trie_op_lang: A<i32, 35112>,
     /// array[1..trie_op_size] of trie_opcode §1120
     pub trie_op_val: A<i32, 35112>,
+    /// The entries of `case_memo.rs`, and the node operations of each: `case_memo::Vars` has how much of them is in use.  Last, so that
+    /// nothing else lies where it did not before them.
+    pub cm_arena: A<i32, CM_ARENA_CAP>,
+    pub cm_ops: A<u8, CM_OPS_CAP>,
     // ---- not POD; never snapshotted; last ----
     pub host: Host,
 }
@@ -1730,6 +1737,8 @@ pub const POD_SECTIONS: &[PodSection] = &[
     PodSection { name: "trie_op_hash", offset: core::mem::offset_of!(Tex, trie_op_hash), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<AO<i32, NEG_TRIE_OP_SIZE, {(TRIE_OP_SIZE - NEG_TRIE_OP_SIZE) as usize + 1}>>() / core::mem::size_of::<i32>(), live: |_| (0, core::mem::size_of::<AO<i32, NEG_TRIE_OP_SIZE, {(TRIE_OP_SIZE - NEG_TRIE_OP_SIZE) as usize + 1}>>() / core::mem::size_of::<i32>()), in_format: false },
     PodSection { name: "trie_op_lang", offset: core::mem::offset_of!(Tex, trie_op_lang), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, 35112>>() / core::mem::size_of::<i32>(), live: |_| (0, core::mem::size_of::<A<i32, 35112>>() / core::mem::size_of::<i32>()), in_format: false },
     PodSection { name: "trie_op_val", offset: core::mem::offset_of!(Tex, trie_op_val), elem_size: core::mem::size_of::<i32>(), cap: core::mem::size_of::<A<i32, 35112>>() / core::mem::size_of::<i32>(), live: |_| (0, core::mem::size_of::<A<i32, 35112>>() / core::mem::size_of::<i32>()), in_format: false },
+    PodSection { name: "cm_arena", offset: core::mem::offset_of!(Tex, cm_arena), elem_size: core::mem::size_of::<i32>(), cap: CM_ARENA_CAP, live: |t| (0, t.v_image.cm.top as usize), in_format: false },
+    PodSection { name: "cm_ops", offset: core::mem::offset_of!(Tex, cm_ops), elem_size: core::mem::size_of::<u8>(), cap: CM_OPS_CAP, live: |t| (0, t.v_image.cm.ops_top as usize), in_format: false },
 ];
 
 impl Tex {

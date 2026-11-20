@@ -57,14 +57,14 @@ impl Tex {
         if self.cur_cmd >= CALL && self.cur_cmd < END_TEMPLATE {
             // §390.  macro_call does not come back to expand, so the count is only tested.
             if self.expand_depth_count + 1 >= self.expand_depth {
-                self.overflow(b"expansion depth", self.expand_depth);
+                self.expand_depth_reached(self.expand_depth_count + 1);
             }
             self.macro_call();
             return;
         }
         self.expand_depth_count += 1;
         if self.expand_depth_count >= self.expand_depth {
-            self.overflow(b"expansion depth", self.expand_depth);
+            self.expand_depth_reached(self.expand_depth_count);
         }
         if self.tracing_commands() <= 1 {
             match self.cur_cmd {
@@ -150,6 +150,9 @@ impl Tex {
             self.cur_cs = SINGLE_BASE + self.buffer.at(self.first);
         }
         self.tx_discard(m);
+        if self.v_image.cm.rec != 0 {
+            self.case_memo_csname();
+        }
         if self.eq_type(self.cur_cs) == UNDEFINED_CS {
             self.eq_define(self.cur_cs, RELAX, 256);
         }
@@ -257,6 +260,9 @@ impl Tex {
                 match self.cur_cmd {
                     TOP_BOT_MARK => {
                         // §412
+                        if self.v_image.cm.rec != 0 {
+                            self.cm_abort("a mark");
+                        }
                         let t = self.cur_chr % MARKS_CODE;
                         if self.cur_chr >= MARKS_CODE {
                             self.scan_register_num();
@@ -313,6 +319,9 @@ impl Tex {
                             }
                         } else {
                             // §394
+                            if self.v_image.cm.rec != 0 {
+                                self.cm_abort("\\pdfprimitive");
+                            }
                             let save_scanner_status = self.scanner_status;
                             self.scanner_status = NORMAL;
                             self.get_token();
@@ -344,6 +353,9 @@ impl Tex {
                     FI_OR_ELSE => self.expand_fi_or_else(),
                     INPUT => {
                         // §404
+                        if self.v_image.cm.rec != 0 {
+                            self.cm_abort("\\input");
+                        }
                         if self.cur_chr == 1 {
                             self.force_eof = true;
                         } else if self.cur_chr == 2 {
@@ -372,6 +384,9 @@ impl Tex {
                 self.macro_call();
             } else {
                 // §401
+                if self.v_image.cm.rec != 0 {
+                    self.cm_abort("a template");
+                }
                 self.cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV;
                 self.back_input();
             }
@@ -385,6 +400,10 @@ impl Tex {
 
     /// §405
     pub fn insert_relax(&mut self) {
+        if self.v_image.cm.rec != 0 {
+            // A `\fi` or `\else` while a condition is evaluated: if it began before the call, which `if_limit` says, the call depends on that.
+            self.case_memo_insert_relax();
+        }
         self.cur_tok = CS_TOKEN_FLAG + self.cur_cs;
         self.back_input();
         self.cur_tok = CS_TOKEN_FLAG + FROZEN_RELAX;

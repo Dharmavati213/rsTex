@@ -1,0 +1,96 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 40
+% The memo of expansions on calls that are no case change: an \expanded in a macro's body, with the macro's arguments for its key.  What such a call
+% reads changes between calls, and each call gives what the real path gives: a macro that \ifx holds against another and that never runs, defined again
+% as something else and then as what the other is; a protected macro that becomes an ordinary one; a macro defined again with the tokens it had; an
+% \expandafter that reaches past the brace; \meaning; a body with no arguments; a register; an argument too long for a key.  \tracingstats shows the stacks' marks.
+\documentclass{article}
+\tracingstats=2
+\ExplSyntaxOn
+\cs_new:Npn \gt_marker: { m }
+\cs_new:Npn \gt_walk:n #1 { \gt_walk:N #1 \q_recursion_tail \q_recursion_stop }
+\cs_new:Npn \gt_walk:N #1
+  {
+    \quark_if_recursion_tail_stop:N #1
+    \if_meaning:w \gt_marker: #1 [M] \else: \exp_not:N #1 \fi:
+    \gt_walk:N
+  }
+\cs_new_protected:Npn \gt_show:n #1 { \iow_term:e { G[ \gt_walk:n {#1} ] } }
+\cs_new_protected:Npn \gt_thrice:n #1 { #1 #1 #1 }
+% \ifx of a macro that never runs.
+\cs_new:Npn \gt_x: { x }
+\gt_thrice:n { \gt_show:n { abcdefgh \gt_x: ijklmnop } }
+\cs_set:Npn \gt_x: { y }
+\gt_thrice:n { \gt_show:n { abcdefgh \gt_x: ijklmnop } }
+\cs_set:Npn \gt_x: { m }
+\gt_thrice:n { \gt_show:n { abcdefgh \gt_x: ijklmnop } }
+\cs_set:Npn \gt_x: { z }
+\gt_thrice:n { \gt_show:n { abcdefgh \gt_x: ijklmnop } }
+% A protected macro at the top of the text, and then not protected.
+\cs_new_protected:Npn \gt_p: { P }
+\cs_new_protected:Npn \gt_prot: { \iow_term:e { P[ \gt_walk:n { abcdefghijklmnop } \gt_p: ] } }
+\gt_thrice:n { \gt_prot: }
+\cs_set:Npn \gt_p: { Q }
+\gt_thrice:n { \gt_prot: }
+\cs_set_protected:Npn \gt_p: { R }
+\gt_thrice:n { \gt_prot: }
+% A macro that runs, defined again with the tokens it had, and then with others.
+\cs_new:Npn \gt_f: { F }
+\cs_new_protected:Npn \gt_again: { \iow_term:e { A[ \gt_walk:n { abcdefghijklmnop } \gt_f: ] } }
+\gt_thrice:n { \gt_again: }
+\cs_set:Npn \gt_f: { F }
+\gt_thrice:n { \gt_again: }
+\cs_set:Npn \gt_f: { G }
+\gt_thrice:n { \gt_again: }
+% An \expandafter at the end of the argument reaches the token after the brace.
+\cs_new:Npn \gt_tail: { }
+\cs_new:Npn \gt_reach:n #1 { \tex_expanded:D { \gt_walk:n { abcdefghijklmnop } #1 } \gt_tail: }
+\cs_new_protected:Npn \gt_reach_show:
+  {
+    \tl_set:Nx \l_tmpa_tl { \gt_reach:n { \exp_after:wN } }
+    \iow_term:x { R[ \exp_not:V \l_tmpa_tl ] }
+  }
+\gt_thrice:n { \gt_reach_show: }
+\cs_set:Npn \gt_tail: { T }
+\gt_thrice:n { \gt_reach_show: }
+\cs_set:Npn \gt_tail: { }
+\gt_thrice:n { \gt_reach_show: }
+% \meaning of a macro that does not run.
+\cs_new:Npn \gt_y: { one }
+\cs_new_protected:Npn \gt_mean: { \iow_term:e { M[ \gt_walk:n { abcdefghijklmnop } \cs_meaning:N \gt_y: ] } }
+\gt_thrice:n { \gt_mean: }
+\cs_set:Npn \gt_y: { two }
+\gt_thrice:n { \gt_mean: }
+% A body with no arguments.
+\cs_new:Npn \gt_zero: { \tex_expanded:D { \gt_walk:n { abcdefghijklmnop } \gt_f: } }
+\cs_new_protected:Npn \gt_zero_show: { \tl_set:Nx \l_tmpa_tl { \gt_zero: } \iow_term:x { Z[ \exp_not:V \l_tmpa_tl ] } }
+\gt_thrice:n { \gt_zero_show: }
+\cs_set:Npn \gt_f: { H }
+\gt_thrice:n { \gt_zero_show: }
+\cs_set:Npn \gt_marker: { c }
+\gt_thrice:n { \gt_zero_show: }
+% A register, and a \toks.
+\cs_new_protected:Npn \gt_reg: { \iow_term:e { I[ \gt_walk:n { abcdefghijklmnop } \int_use:N \l_tmpa_int \tex_the:D \tex_toks:D 0 ~ ] } }
+\int_set:Nn \l_tmpa_int { 1 } \tex_toks:D 0 = { u }
+\gt_thrice:n { \gt_reg: }
+\int_set:Nn \l_tmpa_int { 2 }
+\gt_thrice:n { \gt_reg: }
+\tex_toks:D 0 = { v }
+\gt_thrice:n { \gt_reg: }
+% An argument too long for a key, and another after it that is not the same from call to call.
+\tl_set:Nx \l_tmpb_tl { \prg_replicate:nn { 4200 } { x } }
+\cs_new:Npn \gt_two:nn #1#2 { \tex_expanded:D { \gt_walk:n { abcdefghijklmnop } \use_none:n {#1} #2 } }
+\cs_new_protected:Npn \gt_two_set:Nnn #1#2#3 { \tl_set:Nx #1 { \gt_two:nn {#2} {#3} } }
+\cs_new_protected:Npn \gt_two_show:n #1
+  {
+    \exp_args:NNo \gt_two_set:Nnn \l_tmpa_tl { \l_tmpb_tl } {#1}
+    \iow_term:x { L[ \exp_not:V \l_tmpa_tl ] }
+  }
+\gt_thrice:n { \gt_two_show:n { A } }
+\gt_thrice:n { \gt_two_show:n { B } }
+\gt_thrice:n { \gt_two_show:n { A } }
+\ExplSyntaxOff
+\begin{document}
+x
+\end{document}

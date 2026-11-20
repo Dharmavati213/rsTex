@@ -1127,7 +1127,7 @@ impl Tex {
         let mut n: i32; // numerator of combined multiplication and division
         self.expand_depth_count += 1;
         if self.expand_depth_count >= self.expand_depth {
-            self.overflow(b"expansion depth", self.expand_depth);
+            self.expand_depth_reached(self.expand_depth_count);
         }
         // §1783 Scan and evaluate an expression e of type l
         'restart: loop {
@@ -1155,6 +1155,9 @@ impl Tex {
                     self.set_expr_e_field(q, e);
                     self.set_expr_t_field(q, t);
                     self.set_expr_n_field(q, n);
+                    if self.v_image.cm.rec != 0 {
+                        self.case_memo_expr_push(q);
+                    }
                     p = q;
                     l = o;
                     continue 'restart;
@@ -1331,6 +1334,9 @@ impl Tex {
                         r = self.subtype(q) % 4;
                         l = self.ty(q);
                         p = self.link(q);
+                        if self.v_image.cm.rec != 0 {
+                            self.case_memo_expr_pop(q);
+                        }
                         self.free_node(q, EXPR_NODE_SIZE);
                         continue 'found;
                     }

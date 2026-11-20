@@ -135,6 +135,9 @@ struct Options {
     no_share: bool,
     /// The native `\\pickup@font`: 1, or 0 with `RSTEX_NO_PF`, or 2 with `RSTEX_PF_PEAK`, which is a test of it.
     native_font: i32,
+    /// The memo of expansions, `case_memo.rs`: 1, or 0 with `RSTEX_NO_CASE_MEMO`, or 2 with `RSTEX_CASE_MEMO_CHECK`, which is a test of it, or 3 with
+    /// `RSTEX_CASE_MEMO_EAGER`, which is for tests of one page.
+    case_memo: i32,
     /// `--commute-report`: the log says what became of each diagram.
     commute_report: bool,
     /// `--commute-report=names`: and the name of a macro that stood in the way.
@@ -310,6 +313,7 @@ fn parse_options(args: &[Vec<u8>]) -> Result<Options, Stop> {
         no_commute: false,
         no_share: false,
         native_font: 1,
+        case_memo: 1,
         commute_report: false,
         commute_report_names: false,
         until_stable: Default::default(),
@@ -926,6 +930,7 @@ fn apply(o: &Options, i: &Init, t: &mut Tex) {
     t.v_image.cd.on = !o.no_commute && !o.ini_version;
     t.v_image.no_share = o.no_share;
     t.v_image.pf.mode = if o.ini_version { 0 } else { o.native_font };
+    t.v_image.cm.mode = if o.ini_version { 0 } else { o.case_memo };
     t.v_image.cd.report = o.commute_report;
     t.v_image.cd.report_names = o.commute_report_names;
     // Not an option: what stdio makes of pdfTeX's `stdout`, a line buffer on a terminal, for `wterm` §56.
@@ -1013,6 +1018,13 @@ fn run_job(args: Vec<Vec<u8>>, session: Option<session::Config>, second: Option<
     // Before the key is made, since a checkpoint holds what it decides.
     o.no_commute |= second.is_some() || platform::env_var(b"RSTEX_NO_COMMUTE").is_some();
     o.no_share |= platform::env_var(b"RSTEX_NO_SHARE").is_some();
+    if platform::env_var(b"RSTEX_NO_CASE_MEMO").is_some() {
+        o.case_memo = 0;
+    } else if platform::env_var(b"RSTEX_CASE_MEMO_CHECK").is_some() {
+        o.case_memo = 2;
+    } else if platform::env_var(b"RSTEX_CASE_MEMO_EAGER").is_some() {
+        o.case_memo = 3;
+    }
     if platform::env_var(b"RSTEX_NO_PF").is_some() {
         o.native_font = 0;
     } else if platform::env_var(b"RSTEX_PF_PEAK").is_some() {

@@ -1,0 +1,24 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+% env: expand_depth=50
+%% takes: 8
+% A replay needs the depth of expansion the real path took above where the call stands.  Each call here is in more \expanded than the last: those
+% with room are replayed, and the last runs the real path, which stops where the oracle stops, with all the marks of the log as they were.  The brace
+% of each \expanded is undone with \iffalse}\fi, so that every call has the align_state of the first, which a text that can read an & needs.
+\documentclass{article}
+\tracingstats=2
+\ExplSyntaxOn
+\cs_new_protected:Npn \ct #1 { \iow_term:e { [ \text_uppercase:n {#1} ] } }
+\cs_new:Npn \nest #1#2 { \int_compare:nNnTF {#1} > 0 { \expanded { \iffalse } \fi \nest { #1 - 1 } {#2} \iffalse { \fi } } {#2} }
+\cs_new_protected:Npn \cn #1#2 { \iow_term:e { [ \nest {#1} { \text_uppercase:n {#2} } ] } }
+\ExplSyntaxOff
+\begin{document}
+\ct{abc}\ct{abc}\ct{abc}
+\cn{3}{abc}
+\cn{12}{abc}
+\cn{18}{abc}
+\cn{19}{abc}
+\cn{20}{abc}
+\cn{21}{abc}
+\cn{22}{abc}
+\end{document}

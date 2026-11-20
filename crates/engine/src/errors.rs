@@ -22,6 +22,7 @@ impl Tex {
     /// §81
     #[cold]
     pub fn jump_out(&mut self) -> ! {
+        self.case_memo_on_error();
         self.close_files_and_terminate();
         self.do_final_end()
     }
@@ -40,6 +41,7 @@ impl Tex {
         const CH_S: i32 = b'S' as i32;
         const CH_X: i32 = b'X' as i32;
         self.native_on_error();
+        self.case_memo_on_error();
         // `debug "D"` in §84 is not compiled in the oracle.
         if self.history < ERROR_MESSAGE_ISSUED {
             self.history = ERROR_MESSAGE_ISSUED;
@@ -305,6 +307,9 @@ impl Tex {
     /// §98
     #[cold]
     pub fn pause_for_instructions(&mut self) {
+        if self.interrupt == crate::case_memo::CASE_MEMO_INTERRUPT {
+            return;
+        }
         if self.OK_to_interrupt {
             self.interaction = ERROR_STOP_MODE;
             if self.selector == LOG_ONLY || self.selector == NO_PRINT {

@@ -1,0 +1,92 @@
+% mode: latex
+% env: RSTEX_CASE_MEMO_EAGER=1
+%% takes: 20
+% What a case change reads changes between calls of the same text, and each call gives what the real path gives: a macro in the text, the mappings,
+% a quark made again, \catcode, \escapechar, \uccode, \hyphenchar, a counter, a \toks, the font, the mode, a name that \ifcsname looks for, \csname,
+% expressions with parentheses, the conditionals, \pdfstrcmp, \meaning, \jobname, a mark, tracing, an error, an & in an alignment's cell and outside.
+\documentclass{article}
+\tracingstats=2
+\newcounter{cnt}
+\newtoks\cmtoks
+\ExplSyntaxOn
+\cs_new_protected:Npn \ct #1 { \iow_term:e { [ \text_uppercase:n {#1} ] } }
+\cs_new_protected:Npn \ctt #1 { \ct {#1} \ct {#1} \ct {#1} }
+\cs_new_protected:Npn \quarkagain { \cs_set:Npn \q__text_stop { \q__text_stop } }
+\cs_new_protected:Npn \edt #1 { \tl_set:Ne \l_tmpa_tl { \text_uppercase:n {#1} } \iow_term:e { E[ \l_tmpa_tl ] } }
+\ExplSyntaxOff
+\def\x{abc}
+\begin{document}
+\ctt{x\x y}
+\def\x{def}
+\ctt{x\x y}
+\let\x\relax
+\ctt{x\x y}
+\ctt{abcz}
+\DeclareUppercaseMapping{`a}{Q}
+\ctt{abcz}
+\DeclareUppercaseMapping{`z}{\"Y}
+\ctt{abcz}
+\ctt{quark}
+\quarkagain
+\ctt{quark}
+\ctt{\detokenize{\@ \foo \% \x}}
+\makeatletter
+\ctt{\detokenize{\@ \foo \% \x}}
+\makeatother
+\ctt{\string\foo\string\@}
+\escapechar=`\!
+\ctt{\string\foo\string\@}
+\escapechar=-1
+\ctt{\string\foo\string\@}
+\escapechar=`\\
+\ctt{\the\uccode`a \the\lccode`B \the\catcode`a \the\sfcode`a \the\mathcode`a \the\delcode`a}
+\ctt{\the\uccode`\! \the\catcode`\! !}
+\uccode`\!=`Z \catcode`\!=11
+\ctt{\the\uccode`\! \the\catcode`\! !}
+\uccode`\!=0 \catcode`\!=12
+\ctt{\the\hyphenchar\font\space\the\skewchar\font}
+\hyphenchar\font=`-
+\ctt{\the\hyphenchar\font\space\the\skewchar\font}
+\ctt{n\arabic{cnt}\roman{cnt}\Alph{cnt}}
+\stepcounter{cnt}\stepcounter{cnt}
+\ctt{n\arabic{cnt}\roman{cnt}\Alph{cnt}}
+\cmtoks={first}
+\ctt{\the\cmtoks\space\the\toks250 }
+\cmtoks={second} \toks250={zero}
+\ctt{\the\cmtoks\space\the\toks250 }
+\ctt{\the\fontdimen6\font\space\the\dimexpr 1em+1ex\relax}
+\ctt{\fontname\font}
+{\bfseries\ctt{\the\fontdimen6\font\space\the\dimexpr 1em+1ex\relax}}
+\ctt{\the\dimexpr 2pt*(3+4)\relax\space\number\numexpr((1+2)*(3+4)-(5))/2\relax\space\number\numexpr 7*(2)\relax}
+\ctt{\ifdim 1pt<2pt a\else b\fi\ifodd 3 c\fi\ifcase 2 d\or e\or f\else g\fi\ifx aa h\fi\if aa i\fi\ifcat aa j\fi\unless\ifdefined\undefined k\fi}
+\ctt{\expandafter\noexpand\csname relax\endcsname\romannumeral 1984 \number`\a}
+\ctt{\ifcsname zzz\endcsname yes\else no\fi}
+\def\zzz{}
+\ctt{\ifcsname zzz\endcsname yes\else no\fi}
+\ctt{\csname qqq\endcsname qqq}
+\ctt{\pdfstrcmp{abc}{abd}\pdfstrcmp{b}{b}\pdfescapestring{a(b)}\pdfescapehex{AB}}
+\def\y{yy}
+\ctt{\meaning\y\meaning a\meaning\relax\meaning\@}
+\def\y{zz}
+\ctt{\meaning\y}
+\ctt{\jobname}
+\ctt{a\topmark b}
+\mark{m}
+\ctt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}
+\edt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}
+\edt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}
+x\edt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}
+\edt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}
+$\edt{\ifvmode V\else\ifhmode H\else\ifmmode M\else N\fi\fi\fi}$
+\par
+\ctt{trace}
+{\tracingmacros=1 \ct{trace}}
+{\tracingifs=1 \tracingcommands=3 \ct{trace}}
+{\tracingnesting=2 \ct{trace}}
+\ctt{trace}
+\ctt{a\undefinedcommand b}
+\ctt{a\number x b}
+\halign{#&#\cr \edt{a&b}&\edt{a&b}\cr \edt{a&b}\cr}
+\edt{a&b}
+\edt{a&b}
+\end{document}

@@ -1165,8 +1165,31 @@ impl Tex {
         self.set_param_start(self.param_ptr);
     }
 
-    /// §346
+    /// §346.  Its `check_interrupt` is tested first, and what it does then is out of line.
     pub fn end_token_list(&mut self) {
+        if self.interrupt != 0 {
+            return self.end_token_list_interrupted();
+        }
+        self.end_token_list_level();
+    }
+
+    /// §346 with an interrupt waiting, or with `case_memo.rs` recording a call: that holds `interrupt` at `CASE_MEMO_INTERRUPT`, so that each level
+    /// that ends comes here, and its hook sees the level before it goes.
+    #[cold]
+    #[inline(never)]
+    fn end_token_list_interrupted(&mut self) {
+        if self.interrupt == crate::case_memo::CASE_MEMO_INTERRUPT {
+            self.case_memo_level_ends();
+            self.end_token_list_level();
+        } else {
+            self.end_token_list_level();
+            self.pause_for_instructions();
+        }
+    }
+
+    /// §346 but its `check_interrupt`.
+    #[inline(always)]
+    fn end_token_list_level(&mut self) {
         if self.token_type() >= BACKED_UP {
             if self.token_type() <= INSERTED {
                 self.flush_list(self.start());
@@ -1191,7 +1214,6 @@ impl Tex {
             }
         }
         self.pop_input();
-        self.check_interrupt();
     }
 
     /// §347
@@ -1406,6 +1428,34 @@ mod tests {
         assert_eq!(t.tok_one(301), a, "the argument was freed");
         assert_eq!(t.token_ref_count(h), 0, "the macro's own reference remains");
         Tex::dealloc(t);
+    }
+
+    /// `case_memo.rs` holds `interrupt` at `CASE_MEMO_INTERRUPT` while it records, so that each level that ends comes to its hook: the level
+    /// ends as with no interrupt, `get_next` reads on, and nothing pauses.
+    #[test]
+    fn a_recording_ends_each_level_the_cold_way_and_as_with_none() {
+        let mut seen = Vec::new();
+        for interrupt in [0, crate::case_memo::CASE_MEMO_INTERRUPT] {
+            let t = machine();
+            t.interrupt = interrupt;
+            let a = t.tok_one(300);
+            t.param_stack[3] = a;
+            t.param_stack[4] = NULL;
+            t.param_ptr = 5;
+            let h = def_macro(t, cs(b'm'), CALL, &[], &[]);
+            t.begin_token_list(h, MACRO);
+            t.set_param_start(3);
+            t.end_token_list();
+            let freed = t.tok_one(301) == a;
+            feed(t, &[LETTER_TOKEN + 98]);
+            feed(t, &[]);
+            t.get_next();
+            seen.push(((t.param_ptr, freed, t.token_ref_count(h), t.cur_chr, t.input_ptr, t.history), t.interrupt));
+            Tex::dealloc(t);
+        }
+        assert_eq!(seen[0].0, seen[1].0, "the level, its argument, the token after and the history");
+        assert_eq!((seen[0].0 .0, seen[0].0 .1, seen[0].0 .2, seen[0].0 .3), (3, true, 0, 98));
+        assert_eq!(seen[1].1, crate::case_memo::CASE_MEMO_INTERRUPT, "the interrupt stays, and nothing paused");
     }
 
     #[test]

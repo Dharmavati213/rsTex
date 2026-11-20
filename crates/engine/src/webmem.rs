@@ -5,7 +5,7 @@
 //! WEB's dyn_used = dyn_used here + tokens in blocks in use, once for each reference to an argument handed on + heads + csname_depth + tb_ptr + tx_ptr
 //! ```
 //!
-//! `heads` being the cells that hold reference counts, which a block has in its header, and `csname_depth` the heads of the lists of `\csname` and `\ifcsname` under way, less the cells of lists that only `native_font.rs` keeps alive.  That is the oracle's number at each `\dump` and shipout that shows it, which `tests/integration/run.py` compares.  The native path of diagrams is another matter: it takes less memory than the macros it stands for, so a job with diagrams has room here that it has not on the oracle.  §120 and §125 then say when to stop:
+//! `heads` being the cells that hold reference counts, which a block has in its header, and `csname_depth` the heads of the lists of `\csname` and `\ifcsname` under way, less the cells of lists that only `native_font.rs` and `case_memo.rs` keep alive.  That is the oracle's number at each `\dump` and shipout that shows it, which `tests/integration/run.py` compares.  The native path of diagrams is another matter: it takes less memory than the macros it stands for, so a job with diagrams has room here that it has not on the oracle.  §120 and §125 then say when to stop:
 //!
 //! - `get_avail`, when no cell is free: `hi_mem_min<=lo_mem_max`.  `hi_mem_min` is `M` less the most cells ever in use, `M` being `mem_max+1-mem_min`, so that is `dyn_used>=M-lo_mem_max`.
 //! - `get_node`, when no free node fits: `lo_mem_max+2<hi_mem_min` says whether memory can grow, and §144 by how much.
@@ -56,7 +56,7 @@ crate::pod_struct! {
         pub lo_watch: i32,
         /// The value of `toks_top` at which `tok_bump` asks again.
         pub toks_watch: i32,
-        /// While `fine`: what `pf_held_cells` said at the last look.
+        /// While `fine`: what `held_cells` said at the last look.
         pub held: i32,
         /// While `fine`: the cells of `avail`.
         pub parked_avail: i32,
@@ -189,7 +189,7 @@ impl Tex {
             self.web_sync()
         } else {
             let (used, shares, _) = self.web_census();
-            self.dyn_used as i64 + used + shares + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64 - self.pf_held_cells()
+            self.dyn_used as i64 + used + shares + self.v_webmem.heads as i64 + self.csname_depth as i64 + self.tb_ptr as i64 + self.tx_ptr as i64 - self.held_cells()
         };
         self.web_note_peak(v);
         v as i32
@@ -311,7 +311,7 @@ impl Tex {
         }
         self.v_webmem.toks_watch = 0;
         self.v_webmem.lo_watch = 0;
-        self.v_webmem.held = self.pf_held_cells() as i32;
+        self.v_webmem.held = self.held_cells() as i32;
         let v = self.web_sync();
         self.web_note_peak(v);
         self.web_limits(v, self.tb_ptr, self.tx_ptr);
@@ -324,6 +324,12 @@ impl Tex {
         self.web_m() - MARGIN
             - (self.lo_mem_max as i64 + (self.toks_top - TOKS_FIRST_FREE) as i64 - self.v_webmem.credit as i64)
             - (self.tb_ptr as i64 + self.tx_ptr as i64 + self.csname_depth as i64 + cells + shares + self.v_webmem.heads as i64 + need)
+    }
+
+    /// Whether `need` cells more than are in use now leave the coarse bound clear of `M`: so a call that takes no more than that at once
+    /// cannot fill main memory, nor bring the fine mode.  For `case_memo.rs`, which leaves such a call out.
+    pub fn web_room_for(&self, need: i64) -> bool {
+        self.v_webmem.fine == 0 && (self.main_memory <= 0 || self.web_coarse_room(need) > 0)
     }
 
     /// Where the limits go while the bound is clear of `M`: each has a quarter of what is left, and the one of `taker` has `need` as well, which is what the caller is about to take, so that no more than the bound has room for can rise unseen.
@@ -528,7 +534,7 @@ impl Tex {
         if self.v_webmem.fine == 0 {
             return MEM_SPLIT;
         }
-        self.v_webmem.held = self.pf_held_cells() as i32;
+        self.v_webmem.held = self.held_cells() as i32;
         let v = self.web_sync();
         self.web_note_peak(v);
         self.web_limits(v, self.tb_ptr, self.tx_ptr);

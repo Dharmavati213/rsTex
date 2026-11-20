@@ -1,21 +1,26 @@
 #!/usr/bin/env -S python3 -I
-r"""The native \pickup@font of crates/engine/src/native_font.rs, against the real macros.  tests/integration/native_font holds against the oracle what is here held against the same program with the path off.
+r"""The native \pickup@font of crates/engine/src/native_font.rs against the real macros, and with --lever case_memo the memo of expansions of
+crates/engine/src/case_memo.rs against the real \expanded.  tests/integration/native_font and tests/integration/case_memo hold against the oracle what is here held
+against the same program with the path off.
 
-    python3 -I tests/native_font/run.py --engine WRAPPER [--work DIR] [-j N] [--filter REGEX] [--corpus REGEX] [--show N]
+    python3 -I tests/native_font/run.py --engine WRAPPER [--lever native_font|case_memo] [--work DIR] [-j N] [--filter REGEX] [--corpus REGEX] [--show N]
 
 WRAPPER is called as tests/corpus/run.py calls an engine, with -fmt=pdflatex.
 
-Over the cases, tests/integration/native_font/*.tex:
+Over the cases, tests/integration/<lever>/*.tex:
 
-  same     the log, the PDF and every other file the run wrote are the bytes of a run with RSTEX_NO_PF
+  same     the log, the PDF and every other file the run wrote are the bytes of a run with the lever's switch, RSTEX_NO_PF or RSTEX_NO_CASE_MEMO
   state    what stays between runs is the same: strings, names and meanings, the marks, the allocators' state.  A word of mem can hold a list's address, so only that hash is left out
-  takes    the path was taken as often as the case's line `%% takes: N` says: at least N, and none at all for N=0.  So a table that has gone stale fails here, and does not just get slower
+  takes    the path was taken, or the memo replayed, as often as the case's line `%% takes: N` says: at least N, and none at all for N=0.  So a table that has gone stale fails here, and does not just get slower
   margins  on peak*.tex under RSTEX_PF_PEAK, where the real macros always run: what they need of each stack is under the margins in native_font.rs, of the buffer no more than a font's own conditions count, and what they leave in cur_val, cur_val_level and radix is what the path leaves
   warm     a second run with the cache of the first is restored, says the trace, takes the path, and gives the same files
-  key      that cache with RSTEX_NO_PF, or RSTEX_NO_SHARE: not restored, and the same files
+  key      that cache with the lever's switch, or RSTEX_NO_SHARE: not restored, and the same files
   share    RSTEX_NO_SHARE gives the same files
+  check    for case_memo, under RSTEX_CASE_MEMO_CHECK, which records every first call, where the memo would replay the real path runs under the recorder and has to make the
+           entry that is there: no check fails, there are checks where the memo replays, and the files are those of the run without it
 
---corpus does `same` and `state` over the entries of the corpus that it selects, one pass from the oracle's side files, and counts those that took the path.  Prints ids and counts only.  Exit status 1 if anything differs.
+--corpus does `same` and `state` over the entries of the corpus that it selects, one pass from the oracle's side files, and counts those that took the path; for case_memo `check` too.
+Prints ids and counts only.  Exit status 1 if anything differs.
 """
 import argparse
 import concurrent.futures as cf
@@ -30,12 +35,15 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-CASES = os.path.join(REPO, 'tests', 'integration', 'native_font')
 SOURCE = os.path.join(REPO, 'crates', 'engine', 'src', 'native_font.rs')
 ENV = {'SOURCE_DATE_EPOCH': '1700000000', 'FORCE_SOURCE_DATE': '1', 'TZ': 'UTC', 'LC_ALL': 'C', 'LANG': 'C', 'PATH': os.environ['PATH'], 'HOME': os.environ['HOME'], 'RSTEX_NO_COMMUTE': '1'}
 # What differs between the runs of a pair only because a list's address is in a word of mem.
 STATE = re.compile(r'state: mem [0-9a-f]+ (.*)')
 PF = re.compile(r'pf: not armed (\d+), context (\d+), guards (\d+), font (\d+), taken (\d+); arms (\d+)')
+CM = re.compile(r'cm: calls (\d+), replayed (\d+),')
+CHECK = re.compile(r'checked (\d+), check failed (\d+)')
+# Each lever: the switch that turns it off, and how its line in RSTEX_PF_STATS says how often it was taken.
+LEVERS = {'native_font': ('RSTEX_NO_PF', PF, 5), 'case_memo': ('RSTEX_NO_CASE_MEMO', CM, 2)}
 PEAK = re.compile(r'pf peak, between calls, over (\d+) calls: input \+(-?\d+) param \+(-?\d+) save \+(-?\d+) buffer \+(-?\d+); (\d+) in a row, cur_val (-?\d+) level (-?\d+) radix (-?\d+)')
 
 
@@ -71,11 +79,14 @@ class Run:
     def __init__(self, rc, err, files):
         self.rc, self.files = rc, files
         self.text = err.decode('latin-1')
-        m = PF.search(self.text)
-        self.taken = int(m.group(5)) if m else None
+        _, line, group = LEVERS[args.lever]
+        m = line.search(self.text)
+        self.taken = int(m.group(group)) if m else None
         m = STATE.search(self.text)
         self.state = m.group(1) if m else None
         self.peak = PEAK.search(self.text)
+        m = CHECK.search(self.text)
+        self.checked, self.check_failed = (int(m.group(1)), int(m.group(2))) if m else (None, None)
 
 
 def tex(engine, name, cwd, out, env, cache=None):
@@ -106,11 +117,12 @@ def one(path):
     name = os.path.splitext(os.path.basename(path))[0]
     fails = []
     takes, env = header(path)
+    switch = LEVERS[args.lever][0]
     root = os.path.join(args.work, name)
     shutil.rmtree(root, ignore_errors=True)
     out = os.path.join(root, 'o')
     on = tex(args.engine, name, CASES, out, env)
-    off = tex(args.engine, name, CASES, out, dict(env, RSTEX_NO_PF='1'))
+    off = tex(args.engine, name, CASES, out, dict(env, **{switch: '1'}))
     compare(on, off, 'same', fails)
     if on.state is None or on.state != off.state:
         fails.append('state: %s and %s' % (on.state, off.state))
@@ -119,8 +131,13 @@ def one(path):
     elif on.taken is None or (takes == 0 and on.taken != 0) or on.taken < takes:
         fails.append('takes: %s, where the case says %s' % (on.taken, takes))
     if off.taken != 0:
-        fails.append('with RSTEX_NO_PF it still took the path %s times' % off.taken)
-    if name.startswith('peak'):
+        fails.append('with %s it still took the path %s times' % (switch, off.taken))
+    if args.lever == 'case_memo':
+        c = tex(args.engine, name, CASES, out, dict(env, RSTEX_CASE_MEMO_CHECK='1'))
+        compare(c, off, 'check', fails)
+        if c.check_failed != 0 or (on.taken and not c.checked):
+            fails.append('check: %s checked, %s failed, where the memo replays %s' % (c.checked, c.check_failed, on.taken))
+    if args.lever == 'native_font' and name.startswith('peak'):
         p = tex(args.engine, name, CASES, out, dict(env, RSTEX_PF_PEAK='1'))
         margins = constants()
         if not p.peak:
@@ -152,7 +169,7 @@ def one(path):
         compare(on, c2, 'warm', fails)
         if takes and c2.taken is not None and c2.taken < takes:
             fails.append('warm: took the path %s times, where the case says %s' % (c2.taken, takes))
-        for sw in ('RSTEX_NO_PF', 'RSTEX_NO_SHARE'):
+        for sw in (switch, 'RSTEX_NO_SHARE'):
             c3 = tex(args.engine, name, CASES, out, dict(env, RSTEX_CHECKPOINT_POLICY='always', RSTEX_CHECKPOINT_TRACE='1', **{sw: '1'}), cache)
             if re.search(r'restored', c3.text, re.I):
                 fails.append('key: %s restored a checkpoint made without it' % sw)
@@ -171,7 +188,8 @@ def corpus_one(job):
     out = os.path.join(w, 'o')
     res = {}
     try:
-        for tag, extra in (('on', {}), ('off', {'RSTEX_NO_PF': '1'})):
+        runs = (('on', {}), ('off', {LEVERS[args.lever][0]: '1'})) + ((('check', {'RSTEX_CASE_MEMO_CHECK': '1'}),) if args.lever == 'case_memo' else ())
+        for tag, extra in runs:
             shutil.rmtree(out, ignore_errors=True)
             os.makedirs(out)
             RUN.restore_state(meta, out)
@@ -187,6 +205,11 @@ def corpus_one(job):
         compare(a, b, 'same', fails)
         if a.state != b.state:
             fails.append('state: differs')
+        if 'check' in res:
+            c = res['check']
+            compare(c, b, 'check', fails)
+            if c.check_failed != 0 or (a.taken and not c.checked):
+                fails.append('check: %s checked, %s failed, where the memo replays %s' % (c.checked, c.check_failed, a.taken))
         return eid, 'normal', a.taken, fails
     except subprocess.TimeoutExpired:
         return eid, 'timeout', None, []
@@ -195,10 +218,11 @@ def corpus_one(job):
 
 
 def main():
-    global args, ENTRIES, RUN
+    global args, ENTRIES, RUN, CASES
     ap = argparse.ArgumentParser()
     ap.add_argument('--engine', required=True)
-    ap.add_argument('--work', default=os.path.join(REPO, 'target', 'native-font'))
+    ap.add_argument('--lever', choices=sorted(LEVERS), default='native_font')
+    ap.add_argument('--work')
     ap.add_argument('-j', '--jobs', type=int, default=4)
     ap.add_argument('--filter')
     ap.add_argument('--corpus')
@@ -206,7 +230,8 @@ def main():
     ap.add_argument('--show', type=int, default=40)
     args = ap.parse_args()
     args.engine = os.path.abspath(args.engine)
-    args.work = os.path.abspath(args.work)
+    args.work = os.path.abspath(args.work or os.path.join(REPO, 'target', args.lever.replace('_', '-')))
+    CASES = os.path.join(REPO, 'tests', 'integration', args.lever)
     if args.corpus:
         spec = importlib.util.spec_from_file_location('corpus_run', os.path.join(REPO, 'tests', 'corpus', 'run.py'))
         RUN = importlib.util.module_from_spec(spec)
@@ -228,7 +253,7 @@ def main():
                     same += 1
                 if t:
                     taken += 1
-        print('corpus: %d of %d the same, with RSTEX_NO_PF and without; %d took the path; %d the oracle fails on or that timed out' % (same, same + differ, taken, passed))
+        print('corpus: %d of %d the same, with %s and without; %d took the path; %d the oracle fails on or that timed out' % (same, same + differ, LEVERS[args.lever][0], taken, passed))
         return 1 if differ else 0
     cases = sorted(glob.glob(os.path.join(CASES, '*.tex')))
     if args.filter:
@@ -240,7 +265,7 @@ def main():
             for f in fails:
                 print('    ' + f)
             bad += bool(fails)
-    print('native_font: %d of %d cases pass' % (len(cases) - bad, len(cases)))
+    print('%s: %d of %d cases pass' % (args.lever, len(cases) - bad, len(cases)))
     return 1 if bad else 0
 
 

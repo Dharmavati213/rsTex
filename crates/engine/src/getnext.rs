@@ -34,6 +34,9 @@ impl Tex {
     /// §358
     #[cold]
     pub fn check_outer_validity(&mut self) {
+        if self.v_image.cm.rec != 0 {
+            self.cm_abort("an outer or armed name");
+        }
         // An armed control sequence, which comes this way though it is not outer: crate::checkpoint.
         if self.cur_cmd >= crate::checkpoint::CK_ARMED {
             self.checkpoint_trap();
@@ -211,7 +214,8 @@ impl Tex {
 
     /// §346, §324 for the current level, a token list whose `loc` is at its end, as `get_next` ends it before it reads on.
     /// The types it ends are those of nearly every list, and false says that it has left the level alone: for one of the
-    /// rarer types, or for an interrupt, which `end_token_list` would see to.  Those are for `get_next_literal`.
+    /// rarer types, or for an interrupt, which `end_token_list` would see to.  Those are for `get_next_literal`.  While `case_memo.rs`
+    /// records, `interrupt` says so, and each level goes to `end_token_list`.
     #[inline(always)]
     pub fn end_finished_list(&mut self) -> bool {
         let ty = self.token_type();
@@ -288,9 +292,14 @@ impl Tex {
                 }
             }
             // §364
-            if self.cur_cmd <= CAR_RET && self.cur_cmd >= TAB_MARK && self.align_state == 0 {
-                self.getnext_insert_v_template();
-                continue 'restart;
+            if self.cur_cmd <= CAR_RET && self.cur_cmd >= TAB_MARK {
+                if self.v_image.cm.rec != 0 {
+                    self.case_memo_tab();
+                }
+                if self.align_state == 0 {
+                    self.getnext_insert_v_template();
+                    continue 'restart;
+                }
             }
             return;
         }
